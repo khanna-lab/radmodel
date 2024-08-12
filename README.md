@@ -17,3 +17,6 @@ virtual environment install.
 1. Activate your radmodel virtual environment
 2. Run with `radmodel`
 3. Test with `pytest`
+
+## Funding Information
+[R21 MD 019388](https://reporter.nih.gov/search/3xP1HNXGDkKYlxiG9LbyJA/project-details/10933019)  
