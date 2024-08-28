@@ -109,10 +109,10 @@ def check_place_continuity(schedules):
         last_place = int(resident_schedule[-1]["place"])
         last_start = int(resident_schedule[-1]["start"])
 
-        if last_start == 1260 and int(resident_schedule[0]["start"]) == 0:
-            if last_place != first_place:
-                print(f"Resident {resident_id} has an inconsistent place transition from {last_place} at 1260 to {first_place} at time 0.")
-                return False
+        #if last_start == 1260 and int(resident_schedule[0]["start"]) == 0:
+        if last_place != first_place:
+            print(f"Resident {resident_id} has an inconsistent place transition from {last_place} at 1260 to {first_place} at time 0.")
+            return False
 
     return True
 
