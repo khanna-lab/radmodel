@@ -55,7 +55,11 @@ activity_room_offset = parameters.NUM_CELLS
 cafeteria_offset = parameters.NUM_CELLS + parameters.NUM_ACTIVITY_ROOMS
 outdoor_area_offset = cafeteria_offset + parameters.NUM_CAFETERIAS
 
-# Generate schedules for each resident
+# Ensure continuity by only allowing transitions that make logical sense
+# (e.g., from cell -> activity room -> cafeteria -> outdoor area -> back to cell)
+place_type_order = ['cell', 'activity_room', 'cafeteria', 'outdoor_area', 'cell']
+place_type_indices = {place_type: idx for idx, place_type in enumerate(place_type_order)}
+
 for resident in residents:
     resident_id = resident["id"]
     cell_id = resident["cell"]
@@ -70,19 +74,20 @@ for resident in residents:
         (1260, cell_id)  # Back to cell
     ]
 
-    # Ensure continuity by checking if a resident is already in the target location
     previous_place = cell_id
+    previous_place_type = 'cell'  # Assuming initial type is 'cell'
     resident_schedule = []
 
     for time, place in schedule_times:
-        # Ensure the resident stays in the current place unless explicitly required to move
-        if previous_place == place:
-            resident_schedule.append({"resident_id": resident_id, "start": time, "place": place, "risk": 1})
-        else:
-            # Add detailed logging for diagnostic purposes
-            print(f"Transition for resident {resident_id} from {previous_place} to {place} at time {time}")
+        # Ensure the next place follows the logical sequence
+        current_place_type = places[place]['type']
+        if place_type_indices[current_place_type] >= place_type_indices[previous_place_type]:
             resident_schedule.append({"resident_id": resident_id, "start": time, "place": place, "risk": 1})
             previous_place = place
+            previous_place_type = current_place_type
+        else:
+            # Stay in the same place if the next place does not logically follow
+            resident_schedule.append({"resident_id": resident_id, "start": time, "place": previous_place, "risk": 1})
 
     schedules.extend(resident_schedule)
 
