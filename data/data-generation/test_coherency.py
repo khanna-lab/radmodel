@@ -79,6 +79,25 @@ def test_place_counts():
 
     print("All place counts are correct.")
 
+def check_place_continuity(schedules):
+    """Check that each resident's activities have a consistent place-to-place flow."""
+    schedules_by_resident = {}
+    for schedule in schedules:
+        resident_id = int(schedule["resident_id"])
+        if resident_id not in schedules_by_resident:
+            schedules_by_resident[resident_id] = []
+        schedules_by_resident[resident_id].append(schedule)
+
+    for resident_id, resident_schedule in schedules_by_resident.items():
+        for i in range(len(resident_schedule) - 1):
+            current_place = int(resident_schedule[i]["place"])
+            next_place = int(resident_schedule[i + 1]["place"])
+            if current_place != next_place and resident_schedule[i + 1]["start"] <= resident_schedule[i]["start"]:
+                print(f"Inconsistent place transition for resident {resident_id} from place {current_place} to {next_place}.")
+                return False
+
+    return True
+
 def main():
     """Main function to run all coherence checks."""
     schedule_file = 'schedule.csv'
@@ -91,6 +110,8 @@ def main():
         print("Schedule has time ordering issues.")
     elif not check_no_overlap(schedules):
         print("Schedule has overlapping activities.")
+    elif not check_place_continuity(schedules):
+        print("Schedule has place continuity issues.")
     else:
         print("Schedule passed all coherence checks.")
 
