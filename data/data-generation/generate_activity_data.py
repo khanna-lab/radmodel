@@ -70,8 +70,16 @@ for resident in residents:
         (1260, cell_id)  # Back to cell
     ]
 
-    # Generate schedule list for this resident
-    resident_schedule = [{"resident_id": resident_id, "start": time, "place": place, "risk": 1} for time, place in schedule_times]
+    # Simplify by ensuring the resident stays in the same place until the next scheduled move
+    previous_place = cell_id
+    resident_schedule = []
+
+    for time, place in schedule_times:
+        if time > 0 and previous_place == place:
+            continue  # Skip unnecessary transitions
+        resident_schedule.append({"resident_id": resident_id, "start": time, "place": place, "risk": 1})
+        previous_place = place
+
     schedules.extend(resident_schedule)
 
 # Write schedule.csv
