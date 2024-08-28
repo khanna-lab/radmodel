@@ -70,15 +70,19 @@ for resident in residents:
         (1260, cell_id)  # Back to cell
     ]
 
-    # Simplify by ensuring the resident stays in the same place until the next scheduled move
+    # Ensure continuity by checking if a resident is already in the target location
     previous_place = cell_id
     resident_schedule = []
 
     for time, place in schedule_times:
-        if time > 0 and previous_place == place:
-            continue  # Skip unnecessary transitions
-        resident_schedule.append({"resident_id": resident_id, "start": time, "place": place, "risk": 1})
-        previous_place = place
+        # Ensure the resident stays in the current place unless explicitly required to move
+        if previous_place == place:
+            resident_schedule.append({"resident_id": resident_id, "start": time, "place": place, "risk": 1})
+        else:
+            # Add detailed logging for diagnostic purposes
+            print(f"Transition for resident {resident_id} from {previous_place} to {place} at time {time}")
+            resident_schedule.append({"resident_id": resident_id, "start": time, "place": place, "risk": 1})
+            previous_place = place
 
     schedules.extend(resident_schedule)
 
