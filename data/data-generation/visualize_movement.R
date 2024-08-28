@@ -40,3 +40,22 @@ ggplot() +
   theme(legend.position = "right")
 
 p1
+
+p2 <- 
+  # Create the plot with enhanced shaded backgrounds and labels
+  ggplot() +
+    geom_rect(data = place_type_ranges, aes(xmin = -Inf, xmax = Inf, ymin = ymin, ymax = ymax, fill = type), alpha = 0.2) +
+    geom_line(data = filtered_schedules, aes(x = start, y = place, group = resident_id, color = as.factor(resident_id)), size = 1) +
+    geom_point(data = filtered_schedules, aes(x = start, y = place, group = resident_id, color = as.factor(resident_id)), size = 3) +
+    scale_fill_manual(values = c("lightblue", "lightgreen", "lightpink", "lightyellow", "lightgray", "lightcoral")) +
+    labs(title = "Movement of Selected Residents",
+        x = "Time (minutes since midnight)",
+        y = "Place ID",
+        fill = "Place Type",
+        color = "Resident ID") +
+    theme_minimal() +
+    theme(legend.position = "right",
+          axis.text.y = element_text(size = 10),
+          plot.title = element_text(hjust = 0.5, size = 14)) +
+    scale_y_continuous(breaks = place_type_ranges$ymin, labels = place_type_ranges$type)
+p2
