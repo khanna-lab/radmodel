@@ -20,7 +20,7 @@ for i in range(parameters.NUM_ACTIVITY_ROOMS):
 for i in range(parameters.NUM_CAFETERIAS):
     places.append({"id": parameters.NUM_CELLS + parameters.NUM_ACTIVITY_ROOMS + i, "name": f"cafeteria_{i + 1}", "type": "cafeteria"})
 
-# Add outdoor area
+# Add outdoor areas
 for i in range(parameters.NUM_OUTDOOR_AREAS):
     places.append({"id": parameters.NUM_CELLS + parameters.NUM_ACTIVITY_ROOMS + parameters.NUM_CAFETERIAS + i, "name": f"outdoor_area_{i + 1}", "type": "outdoor_area"})
 
@@ -50,45 +50,25 @@ with open("residents.csv", mode="w", newline="") as file:
 # Step 3: Define schedules
 schedules = []
 
-# Define offsets for place types
-activity_room_offset = parameters.NUM_CELLS
-cafeteria_offset = parameters.NUM_CELLS + parameters.NUM_ACTIVITY_ROOMS
-outdoor_area_offset = cafeteria_offset + parameters.NUM_CAFETERIAS
-
-# Ensure continuity by only allowing transitions that make logical sense
-# (e.g., from cell -> activity room -> cafeteria -> outdoor area -> back to cell)
-place_type_order = ['cell', 'activity_room', 'cafeteria', 'outdoor_area', 'cell']
-place_type_indices = {place_type: idx for idx, place_type in enumerate(place_type_order)}
-
+# Define fixed schedule locations
 for resident in residents:
     resident_id = resident["id"]
     cell_id = resident["cell"]
 
-    # Define time intervals and location types using offsets
+    # Fixed schedule with logical transitions
     schedule_times = [
-        (0, cell_id),  # In cell
-        (360, random.randint(activity_room_offset, activity_room_offset + parameters.NUM_ACTIVITY_ROOMS - 1)),  # Activity room
-        (480, random.randint(cafeteria_offset, cafeteria_offset + parameters.NUM_CAFETERIAS - 1)),  # Cafeteria
-        (720, random.randint(activity_room_offset, activity_room_offset + parameters.NUM_ACTIVITY_ROOMS - 1)),  # Activity room again
-        (1020, outdoor_area_offset),  # Outdoor yard
-        (1260, cell_id)  # Back to cell
+        (0, cell_id),  # Morning in cell
+        (360, parameters.NUM_CELLS + random.randint(0, parameters.NUM_ACTIVITY_ROOMS - 1)),  # Activity room
+        (480, parameters.NUM_CELLS + parameters.NUM_ACTIVITY_ROOMS + random.randint(0, parameters.NUM_CAFETERIAS - 1)),  # Cafeteria
+        (720, parameters.NUM_CELLS + random.randint(0, parameters.NUM_ACTIVITY_ROOMS - 1)),  # Activity room again
+        (900, parameters.NUM_CELLS + parameters.NUM_ACTIVITY_ROOMS + parameters.NUM_CAFETERIAS + parameters.NUM_OUTDOOR_AREAS + random.randint(0, parameters.NUM_ADMIN_OFFICES - 1)),  # Administrative office visit
+        (1020, parameters.NUM_CELLS + parameters.NUM_ACTIVITY_ROOMS + parameters.NUM_CAFETERIAS + random.randint(0, parameters.NUM_OUTDOOR_AREAS - 1)),  # Outdoor area
+        (1140, parameters.NUM_CELLS + parameters.NUM_ACTIVITY_ROOMS + parameters.NUM_CAFETERIAS + parameters.NUM_OUTDOOR_AREAS + parameters.NUM_ADMIN_OFFICES + random.randint(0, parameters.NUM_MEDICAL_FACILITIES - 1)),  # Medical facility visit
+        (1260, cell_id)  # Return to cell
     ]
 
-    previous_place = cell_id
-    previous_place_type = 'cell'  # Assuming initial type is 'cell'
-    resident_schedule = []
-
-    for time, place in schedule_times:
-        # Ensure the next place follows the logical sequence
-        current_place_type = places[place]['type']
-        if place_type_indices[current_place_type] >= place_type_indices[previous_place_type]:
-            resident_schedule.append({"resident_id": resident_id, "start": time, "place": place, "risk": 1})
-            previous_place = place
-            previous_place_type = current_place_type
-        else:
-            # Stay in the same place if the next place does not logically follow
-            resident_schedule.append({"resident_id": resident_id, "start": time, "place": previous_place, "risk": 1})
-
+    # Generate the schedule for this resident
+    resident_schedule = [{"resident_id": resident_id, "start": time, "place": place, "risk": 1} for time, place in schedule_times]
     schedules.extend(resident_schedule)
 
 # Write schedule.csv

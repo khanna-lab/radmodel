@@ -80,8 +80,9 @@ def test_place_counts():
     print("All place counts are correct.")
 
 def check_place_continuity(schedules):
-    """Check that each resident's activities have a consistent place-to-place flow."""
+    """Check that each resident's activities have a consistent place-to-place flow across cycles."""
     schedules_by_resident = {}
+
     for schedule in schedules:
         resident_id = int(schedule["resident_id"])
         if resident_id not in schedules_by_resident:
@@ -89,14 +90,33 @@ def check_place_continuity(schedules):
         schedules_by_resident[resident_id].append(schedule)
 
     for resident_id, resident_schedule in schedules_by_resident.items():
+        # Ensure the schedule is sorted by start time
+        resident_schedule.sort(key=lambda x: int(x["start"]))
+
+        # Check transitions between each consecutive activity
         for i in range(len(resident_schedule) - 1):
             current_place = int(resident_schedule[i]["place"])
             next_place = int(resident_schedule[i + 1]["place"])
-            if current_place != next_place and resident_schedule[i + 1]["start"] <= resident_schedule[i]["start"]:
-                print(f"Inconsistent place transition for resident {resident_id} from place {current_place} to {next_place}.")
+            current_start = int(resident_schedule[i]["start"])
+            next_start = int(resident_schedule[i + 1]["start"])
+
+            if next_start <= current_start:
+                print(f"Resident {resident_id} has an inconsistent time transition: {current_start} -> {next_start}.")
+                return False
+
+        # Check the continuity between the last activity of the day and the first activity of the next day
+        first_place = int(resident_schedule[0]["place"])
+        last_place = int(resident_schedule[-1]["place"])
+        last_start = int(resident_schedule[-1]["start"])
+
+        if last_start == 1260 and int(resident_schedule[0]["start"]) == 0:
+            if last_place != first_place:
+                print(f"Resident {resident_id} has an inconsistent place transition from {last_place} at 1260 to {first_place} at time 0.")
                 return False
 
     return True
+
+
 
 def main():
     """Main function to run all coherence checks."""
