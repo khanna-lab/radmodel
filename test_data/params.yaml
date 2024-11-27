@@ -1,5 +1,3 @@
-stop.at: 10
-
 random_seed: 42
 
 stoe: 0.1
