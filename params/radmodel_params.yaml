@@ -1,8 +1,15 @@
-stop.at: 10
-
+stop.at: 2880.2
 random_seed: 42
 
-stoe: 0.1
+init_exposed: 4
+
+schedule_file: $this/../data/schedules.csv
+places_file: $this/../data/places.csv
+residents_file: $this/../data/residents.csv
+
+log_file: output/counts.csv
+
+stoe: 0.9
 
 transition_matrix:
   E:
