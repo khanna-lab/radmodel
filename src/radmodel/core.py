@@ -1,15 +1,14 @@
 from dataclasses import dataclass
 import numpy as np
-import os
 from typing import Dict
 from mpi4py import MPI
 
-from repast4py import logging, schedule
+from repast4py import logging, schedule, util
 
 from .common import TICKS_PER_DAY, SUSCEPTIBLE, EXPOSED, PRESYMPTOMATIC, INFECTED_SYMP, INFECTED_ASYMP, \
     RECOVERED, HOSPITALIZED, STATE_MAP, DEAD
-from .population import P_SCHEDULE_IDX, P_CURRENT_PLACE_IDX, PL_PERSON_COUNT_IDX, P_STATE_IDX, P_NEXT_STATE_T_IDX, \
-    PL_INFECTED_COUNT_IDX
+from .population import P_SCHEDULE_IDX, P_CURRENT_PLACE_IDX, P_STATE_IDX, P_NEXT_STATE_T_IDX
+from .population import Places
 
 
 @dataclass
@@ -52,10 +51,25 @@ class Counts:
         self.newly_dead = 0
 
 
+class CountsByPlaceLogger:
+
+    def __init__(self, place_id_map, log_fname):
+        self.reverse_map = {v: k for k, v in place_id_map.items()}
+        self.log_fname = util.find_free_filename(log_fname)
+
+        with open(self.log_fname, "w") as fin:
+            fin.write("tick,place_id,person_count,inf_count\n")
+
+    def log_counts(self, tick, places):
+        with open(self.log_fname, "a") as fin:
+            for idx, vals in enumerate(places.get_all_counts()):
+                fin.write(f"{tick},{self.reverse_map[idx]},{vals[0]},{vals[1]}\n")
+
+
 class Model:
 
     def __init__(self, comm: MPI.Intracomm, schedule_data: np.array, person_data: np.array,
-                 place_data: np.array, stoe: float, trans_matrix: np.array, duration_matrix: np.array, seed: int,
+                 place_data: Places, stoe: float, trans_matrix: np.array, duration_matrix: np.array, seed: int,
                  params: Dict[str, any]):
         self.rng: np.random.Generator = np.random.default_rng(seed)
         n_schedules = int(schedule_data.shape[0] / TICKS_PER_DAY)
@@ -74,7 +88,7 @@ class Model:
         self.params = params
         self.comm = comm
 
-        self._init_logging(comm, params["log_file"])
+        self._init_logging(comm, params)
         self._init_schedule(comm)
         self._init_exposed(params["init_exposed"])
         self._log(0)
@@ -88,10 +102,14 @@ class Model:
                self.rng.gamma(k, scale, n_exposed) * TICKS_PER_DAY)
         print(self.person_data[:, P_NEXT_STATE_T_IDX])
 
-    def _init_logging(self, comm: MPI.Intracomm, log_file: str | os.PathLike):
+    def _init_logging(self, comm: MPI.Intracomm, params: Dict):
+        log_file = params["counts_log_file"]
         self.counts = Counts()
         loggers = logging.create_loggers(self.counts, op=MPI.SUM, rank=comm.Get_rank())
         self.data_set = logging.ReducingDataSet(loggers, comm, log_file)
+
+        place_log_file = params["places_log_file"]
+        self.counts_by_place = CountsByPlaceLogger(self.place_data.place_id_map, place_log_file)
 
     def _init_schedule(self, comm):
         self.runner = schedule.init_schedule_runner(comm)
@@ -116,13 +134,11 @@ class Model:
         residents_next_place_idxs = self.next_place_idxs[self.person_data[:, P_SCHEDULE_IDX]]
         self.person_data[:, P_CURRENT_PLACE_IDX] = self.person_data[self.row_idxs, residents_next_place_idxs]
 
-        # reset person counts in each place to 0
-        self.place_data[:, PL_PERSON_COUNT_IDX:] = 0
         # sets total persons in each place: unique place ids (which are also row indexs in place data),
         #                                   and how many times they occur
         places, counts = np.unique(self.person_data[:, P_CURRENT_PLACE_IDX], return_counts=True)
         # Using the places place row idxs set number of persons in those places
-        self.place_data[places, PL_PERSON_COUNT_IDX] = counts
+        self.place_data.update_counts(places, counts)
         states = self.person_data[:, P_STATE_IDX]
 
         # Same counts but only for infected persons
@@ -130,7 +146,7 @@ class Model:
                                    | (states == INFECTED_ASYMP)
                                    | (states == INFECTED_SYMP)][:, P_CURRENT_PLACE_IDX],
                                    return_counts=True)
-        self.place_data[places, PL_INFECTED_COUNT_IDX] = counts
+        self.place_data.update_infected_counts(places, counts)
 
     def update_disease_state(self, tick: int):
         # row indices of susceptibles - calc if exposed
@@ -140,7 +156,7 @@ class Model:
         sus_place_idxs = self.person_data[sus_idxs, P_CURRENT_PLACE_IDX]
         # each row corresponds to person, cols are total person count, infected count
         # .ix_ applies the column indices to each row index
-        counts = self.place_data[np.ix_(sus_place_idxs, (PL_PERSON_COUNT_IDX, PL_INFECTED_COUNT_IDX))]
+        counts = self.place_data.get_counts(sus_place_idxs)
         # array of n_sus stoe probs - if no one in place, then set prob to 0
         # TODO: risk and shielding scaling
         stoe_p = np.full((n_sus, ), self.stoe, dtype=np.float32) * (counts[:, 1] > 0)
@@ -220,6 +236,7 @@ class Model:
         self.counts.dead += np.count_nonzero(self.person_data[:, P_STATE_IDX] == DEAD)
 
         self.data_set.log(tick)
+        self.counts_by_place.log_counts(tick, self.place_data)
 
     def step(self):
         self.counts.reset()

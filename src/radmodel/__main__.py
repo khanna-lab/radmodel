@@ -12,15 +12,15 @@ def run(params: Dict, comm):
     fname = params["schedule_file"]
     schedule_id_map, schedule_data, risks = population.create_schedules(fname)
     fname = params["places_file"]
-    place_id_map, place_data = population.create_places(fname)
+    places: population.Places = population.create_places(fname)
     fname = params["residents_file"]
-    residents = population.create_residents(fname, place_id_map, schedule_id_map)
+    residents = population.create_residents(fname, places.place_id_map, schedule_id_map)
 
     duration_matrix = core.create_duration_matrix(params)
     trans_matrix = core.create_trans_matrix(params["transition_matrix"])
     stoe = params["stoe"]
 
-    model = core.Model(comm, schedule_data, residents, place_data, stoe, trans_matrix, duration_matrix,
+    model = core.Model(comm, schedule_data, residents, places, stoe, trans_matrix, duration_matrix,
                        params["random_seed"], params)
     model.run()
 

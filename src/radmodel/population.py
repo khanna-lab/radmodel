@@ -119,6 +119,26 @@ def create_schedules(fname: str | os.PathLike) -> Tuple[Dict[int, int], np.array
     return id_map, schedule_array, risks_array
 
 
+class Places:
+
+    def __init__(self, place_id_map: Dict[int, int], place_data: np.array):
+        self.place_data = place_data
+        self.place_id_map = place_id_map
+
+    def update_counts(self, places: np.array, counts: np.array):
+        self.place_data[:, PL_PERSON_COUNT_IDX:] = 0
+        self.place_data[places, PL_PERSON_COUNT_IDX] = counts
+
+    def update_infected_counts(self, places: np.array, counts: np.array):
+        self.place_data[places, PL_INFECTED_COUNT_IDX] = counts
+
+    def get_counts(self, place_idxs: np.array):
+        return self.place_data[np.ix_(place_idxs, (PL_PERSON_COUNT_IDX, PL_INFECTED_COUNT_IDX))]
+
+    def get_all_counts(self):
+        return self.place_data[:, (PL_PERSON_COUNT_IDX, PL_INFECTED_COUNT_IDX)]
+
+
 def create_places(fname: Union[str, os.PathLike]) -> Tuple[Dict[int, int], np.array]:
     n_places = 0
     with open(fname) as fin:
@@ -137,7 +157,7 @@ def create_places(fname: Union[str, os.PathLike]) -> Tuple[Dict[int, int], np.ar
             places_id_map[n_id] = i
             place_data[i, 0] = n_id
 
-    return places_id_map, place_data
+    return Places(places_id_map, place_data)
 
 
 def _parse_resident_place_entry(entry: str):
