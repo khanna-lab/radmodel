@@ -18,8 +18,9 @@ def run(params: Dict, comm):
 
     duration_matrix = core.create_duration_matrix(params)
     trans_matrix = core.create_trans_matrix(params["transition_matrix"])
+    stoe = params["stoe"]
 
-    model = core.Model(comm, schedule_data, residents, place_data, 0.0, trans_matrix, duration_matrix,
+    model = core.Model(comm, schedule_data, residents, place_data, stoe, trans_matrix, duration_matrix,
                        params["random_seed"], params)
     model.run()
 

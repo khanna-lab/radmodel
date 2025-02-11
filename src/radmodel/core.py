@@ -57,7 +57,7 @@ class Model:
     def __init__(self, comm: MPI.Intracomm, schedule_data: np.array, person_data: np.array,
                  place_data: np.array, stoe: float, trans_matrix: np.array, duration_matrix: np.array, seed: int,
                  params: Dict[str, any]):
-        np.random.default_rng(seed)
+        self.rng: np.random.Generator = np.random.default_rng(seed)
         n_schedules = int(schedule_data.shape[0] / TICKS_PER_DAY)
         self.schedule_data = schedule_data
         self.offsets = np.arange(0, n_schedules, dtype=np.int64) * TICKS_PER_DAY
@@ -80,12 +80,13 @@ class Model:
         self._log(0)
 
     def _init_exposed(self, n_exposed: int):
-        idxs = np.random.choice(self.person_data.shape[0], n_exposed, replace=False)
+        idxs = self.rng.choice(self.person_data.shape[0], n_exposed, replace=False)
         np.put(self.person_data[:, P_STATE_IDX], idxs, EXPOSED)
 
         k, scale = self.duration_matrix[EXPOSED]
         np.put(self.person_data[:, P_NEXT_STATE_T_IDX], idxs,
-               np.random.gamma(k, scale, n_exposed) * TICKS_PER_DAY)
+               self.rng.gamma(k, scale, n_exposed) * TICKS_PER_DAY)
+        print(self.person_data[:, P_NEXT_STATE_T_IDX])
 
     def _init_logging(self, comm: MPI.Intracomm, log_file: str | os.PathLike):
         self.counts = Counts()
@@ -143,8 +144,13 @@ class Model:
         # array of n_sus stoe probs - if no one in place, then set prob to 0
         # TODO: risk and shielding scaling
         stoe_p = np.full((n_sus, ), self.stoe, dtype=np.float32) * (counts[:, 1] > 0)
+        # if tick >= 317:
+        #     print(self.place_data[:, PL_INFECTED_COUNT_IDX])
+        #     print(counts)
+        #     print(self.stoe)
+        #     print(stoe_p)
         # sus_idxs[self ...] removes the indexes that don't pass the condition (random draw <= stoe_p)
-        stoe_idxs = sus_idxs[np.random.random(n_sus) <= stoe_p]
+        stoe_idxs = sus_idxs[self.rng.random(n_sus) <= stoe_p]
         # set state to exposed for those that passed
         np.put(self.person_data[:, P_STATE_IDX], stoe_idxs, EXPOSED)
         self.counts.newly_exposed += stoe_idxs.shape[0]
@@ -152,15 +158,16 @@ class Model:
         # set the how long to stay exposed
         k, scale = self.duration_matrix[EXPOSED]
         np.put(self.person_data[:, P_NEXT_STATE_T_IDX], stoe_idxs,
-               tick + np.random.gamma(k, scale, stoe_idxs.shape[0]) * TICKS_PER_DAY)
+               tick + self.rng.gamma(k, scale, stoe_idxs.shape[0]) * TICKS_PER_DAY)
 
         # get non_susceptibles whose next transition time == tick
         candidates_idxs = np.nonzero((self.person_data[:, P_STATE_IDX] != SUSCEPTIBLE)
-                                     & (self.person_data[:, P_NEXT_STATE_T_IDX] == tick))[0]
+                                     & (self.person_data[:, P_NEXT_STATE_T_IDX] == np.int(tick)))[0]
         n_candidates = candidates_idxs.shape[0]
+
         # Compute n_candidates updated states from the transition matrix
         updated_states = (self.trans_matrix[self.person_data[candidates_idxs, P_STATE_IDX]]
-                          > np.random.random((n_candidates, 1))).argmax(1)
+                          > self.rng.random((n_candidates, 1))).argmax(1)
         # Update the states
         np.put(self.person_data[:, P_STATE_IDX], candidates_idxs, updated_states)
 
@@ -168,31 +175,31 @@ class Model:
         duration_candidates = candidates_idxs[self.person_data[candidates_idxs, P_STATE_IDX] == PRESYMPTOMATIC]
         k, scale = self.duration_matrix[PRESYMPTOMATIC]
         np.put(self.person_data[:, P_NEXT_STATE_T_IDX],
-               duration_candidates, tick + np.random.gamma(k, scale, duration_candidates.shape[0]) * TICKS_PER_DAY)
+               duration_candidates, tick + self.rng.gamma(k, scale, duration_candidates.shape[0]) * TICKS_PER_DAY)
         self.counts.newly_presymp += duration_candidates.shape[0]
 
         duration_candidates = candidates_idxs[self.person_data[candidates_idxs, P_STATE_IDX] == INFECTED_SYMP]
         k, scale = self.duration_matrix[INFECTED_SYMP]
         np.put(self.person_data[:, P_NEXT_STATE_T_IDX],
-               duration_candidates, tick + np.random.gamma(k, scale, duration_candidates.shape[0]) * TICKS_PER_DAY)
+               duration_candidates, tick + self.rng.gamma(k, scale, duration_candidates.shape[0]) * TICKS_PER_DAY)
         self.counts.newly_infected_symp += duration_candidates.shape[0]
 
         duration_candidates = candidates_idxs[self.person_data[candidates_idxs, P_STATE_IDX] == INFECTED_ASYMP]
         k, scale = self.duration_matrix[INFECTED_ASYMP]
         np.put(self.person_data[:, P_NEXT_STATE_T_IDX],
-               duration_candidates, tick + np.random.gamma(k, scale, duration_candidates.shape[0]) * TICKS_PER_DAY)
+               duration_candidates, tick + self.rng.gamma(k, scale, duration_candidates.shape[0]) * TICKS_PER_DAY)
         self.counts.newly_infected_asymp += duration_candidates.shape[0]
 
         duration_candidates = candidates_idxs[self.person_data[candidates_idxs, P_STATE_IDX] == HOSPITALIZED]
         k, scale = self.duration_matrix[HOSPITALIZED]
         np.put(self.person_data[:, P_NEXT_STATE_T_IDX],
-               duration_candidates, tick + np.random.gamma(k, scale, duration_candidates.shape[0]) * TICKS_PER_DAY)
+               duration_candidates, tick + self.rng.gamma(k, scale, duration_candidates.shape[0]) * TICKS_PER_DAY)
         self.counts.newly_hospitalized += duration_candidates.shape[0]
 
         duration_candidates = candidates_idxs[self.person_data[candidates_idxs, P_STATE_IDX] == RECOVERED]
         k, scale = self.duration_matrix[RECOVERED]
         np.put(self.person_data[:, P_NEXT_STATE_T_IDX],
-               duration_candidates, tick + np.random.gamma(k, scale, duration_candidates.shape[0]) * TICKS_PER_DAY)
+               duration_candidates, tick + self.rng.gamma(k, scale, duration_candidates.shape[0]) * TICKS_PER_DAY)
         self.counts.newly_recovered += duration_candidates.shape[0]
 
         self.counts.newly_dead += candidates_idxs[self.person_data[candidates_idxs, P_STATE_IDX] == DEAD].shape[0]
