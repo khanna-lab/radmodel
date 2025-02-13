@@ -3,9 +3,9 @@ random_seed: 42
 
 init_exposed: 4
 
-schedule_file: $this/../data/schedules.csv
-places_file: $this/../data/places.csv
-residents_file: $this/../data/residents.csv
+schedule_file: $this/../data/ng_schedules.csv
+places_file: $this/../data/ng_places.csv
+residents_file: $this/../data/ng_residents.csv
 
 counts_log_file: output/counts.csv
 places_log_file: output/counts_by_place.csv
