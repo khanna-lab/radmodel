@@ -1,6 +1,8 @@
 random_seed: 42
+stop.at: 10
 
 stoe: 0.1
+init_exposed: 0
 
 transition_matrix:
   E:
@@ -36,3 +38,6 @@ hospital_duration_k: 6
 
 recovered_duration_mean: 200
 recovered_duration_k: 6
+
+counts_log_file: test_data/counts.csv
+places_log_file: test_data/place_counts.csv

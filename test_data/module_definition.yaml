@@ -1,0 +1,24 @@
+0:
+  - gym
+  - education
+  - yard
+1:
+  - education
+  - gym
+  - yard
+2:
+  - yard
+  - education
+  - gym
+3:
+  - gym
+  - yard
+  - education
+4:
+  - yard
+  - gym
+  - education
+5:
+  - education
+  - yard
+  - gym

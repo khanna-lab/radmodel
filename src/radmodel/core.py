@@ -100,7 +100,6 @@ class Model:
         k, scale = self.duration_matrix[EXPOSED]
         np.put(self.person_data[:, P_NEXT_STATE_T_IDX], idxs,
                self.rng.gamma(k, scale, n_exposed) * TICKS_PER_DAY)
-        print(self.person_data[:, P_NEXT_STATE_T_IDX])
 
     def _init_logging(self, comm: MPI.Intracomm, params: Dict):
         log_file = params["counts_log_file"]
@@ -178,7 +177,7 @@ class Model:
 
         # get non_susceptibles whose next transition time == tick
         candidates_idxs = np.nonzero((self.person_data[:, P_STATE_IDX] != SUSCEPTIBLE)
-                                     & (self.person_data[:, P_NEXT_STATE_T_IDX] == np.int(tick)))[0]
+                                     & (self.person_data[:, P_NEXT_STATE_T_IDX] == tick))[0]
         n_candidates = candidates_idxs.shape[0]
 
         # Compute n_candidates updated states from the transition matrix

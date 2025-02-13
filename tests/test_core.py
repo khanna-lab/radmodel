@@ -1,91 +1,95 @@
 import numpy as np
 import yaml
+from mpi4py import MPI
+import tempfile
+import os
 
 from radmodel import population, common, core
 
 
 def _create_s1_expected():
-    vals = [population.P_CELL_IDX for _ in range(int((420 - 0) / 15))]
-    vals += [population.P_CAFS_IDX for _ in range(int((480 - 420) / 15))]
-    vals += [population.P_ACTS_IDX for _ in range(int((660 - 480) / 15))]
-    vals += [population.P_CAFS_IDX for _ in range(int((720 - 660) / 15))]
-    vals += [population.P_ACTS_IDX for _ in range(int((840 - 720) / 15))]
-    vals += [population.P_OUTDOOR_IDX for _ in range(int((900 - 840) / 15))]
-    vals += [population.P_ACTS_IDX for _ in range(int((1020 - 900) / 15))]
-    vals += [population.P_CAFS_IDX for _ in range(int((1140 - 1020) / 15))]
-    vals += [population.P_CELL_IDX for _ in range(int((1440 - 1140) / 15))]
+    vals = [population.P_CELL_IDX for _ in range(int((435 - 0) / 15))]
+    vals += [population.P_CAF_IDX for _ in range(int((510 - 435) / 15))]
+    vals += [population.P_MACT_IDX for _ in range(int((630 - 510) / 15))]
+    vals += [population.P_CELL_IDX for _ in range(int((675 - 630) / 15))]
+    vals += [population.P_CAF_IDX for _ in range(int((750 - 675) / 15))]
+    vals += [population.P_NACT_IDX for _ in range(int((930 - 750) / 15))]
+    vals += [population.P_CELL_IDX for _ in range(int((960 - 930) / 15))]
+    vals += [population.P_CAF_IDX for _ in range(int((1080 - 960) / 15))]
+    vals += [population.P_EACT_IDX for _ in range(int((1230 - 1080) / 15))]
+    vals += [population.P_CELL_IDX for _ in range(int((1440 - 1230) / 15))]
     place_idxs = np.array(vals, dtype=np.int32)
 
-    vals = [1.0 for _ in range(int((420 - 0) / 15))]
-    vals += [1.0 for _ in range(int((480 - 420) / 15))]
-    vals += [1.0 for _ in range(int((600 - 480) / 15))]
-    vals += [1.5 for _ in range(int((660 - 600) / 15))]
-    vals += [1.0 for _ in range(int((720 - 660) / 15))]
-    vals += [1.0 for _ in range(int((780 - 720) / 15))]
-    vals += [0.8 for _ in range(int((840 - 780) / 15))]
-    vals += [1.0 for _ in range(int((900 - 840) / 15))]
-    vals += [1.0 for _ in range(int((1020 - 900) / 15))]
-    vals += [1.0 for _ in range(int((1140 - 1020) / 15))]
-    vals += [1.0 for _ in range(int((1440 - 1140) / 15))]
+    vals = [1.0 for _ in range(int((435 - 0) / 15))]
+    vals += [1.0 for _ in range(int((510 - 435) / 15))]
+    vals += [1.0 for _ in range(int((630 - 510) / 15))]
+    vals += [1.0 for _ in range(int((675 - 630) / 15))]
+    vals += [1.0 for _ in range(int((750 - 675) / 15))]
+    vals += [2.0 for _ in range(int((930 - 750) / 15))]
+    vals += [1.0 for _ in range(int((960 - 930) / 15))]
+    vals += [1.0 for _ in range(int((1080 - 960) / 15))]
+    vals += [1.5 for _ in range(int((1230 - 1080) / 15))]
+    vals += [1.0 for _ in range(int((1440 - 1230) / 15))]
     risks = np.array(vals, dtype=np.float32)
 
     return place_idxs, risks
 
 
 def _init_data():
-    fname = "./test_data/schedules.csv"
+    fname = "./test_data/ng_schedules.csv"
     schedule_id_map, schedule_data, risks = population.create_schedules(fname)
-    fname = "./test_data/places.csv"
-    place_id_map, place_data = population.create_places(fname)
+    fname = "./test_data/ng_places.csv"
+    places: population.Places = population.create_places(fname)
 
-    fname = "./test_data/residents.csv"
-    residents = population.create_residents(fname, place_id_map, schedule_id_map)
+    fname = "./test_data/ng_residents.csv"
+    residents = population.create_residents(fname, places.place_id_map, schedule_id_map)
 
     params_fname = "./test_data/params.yaml"
     with open(params_fname) as fin:
         params = yaml.safe_load(fin)
+    params["counts_log_file"] = os.path.join(tempfile.gettempdir(), "counts.csv")
+    params["places_log_file"] = os.path.join(tempfile.gettempdir(), "place_counts.csv")
 
-    return schedule_data, risks, place_data, residents, params
+    return schedule_data, risks, places, residents, params
 
 
 def test_create_schedule():
-    fname = "./test_data/schedules.csv"
+    fname = "./test_data/ng_schedules.csv"
     id_map, schedules, risks = population.create_schedules(fname)
-    assert 10 == len(id_map)
-    assert {i: i for i in range(10)} == id_map
+    assert 1 == len(id_map)
+    assert {0: 0} == id_map
     # 1D array of place types
     assert ((common.TICKS_PER_DAY * len(id_map),)) == schedules.shape
     assert ((common.TICKS_PER_DAY * len(id_map),)) == risks.shape
-    s1 = schedules[96: 192]
-    r1 = risks[96: 192]
-    s1_exp, risks_exp = _create_s1_expected()
-    assert np.array_equal(s1, s1_exp)
-    assert np.array_equal(r1, risks_exp)
+
+    s_exp, risks_exp = _create_s1_expected()
+    assert np.array_equal(schedules, s_exp)
+    assert np.array_equal(risks, risks_exp)
 
 
 def test_create_places():
-    fname = "./test_data/places.csv"
-    place_id_map, places = population.create_places(fname)
-    assert (113, 3) == places.shape
-    assert {i: i for i in range(113)} == place_id_map
+    fname = "./test_data/ng_places.csv"
+    places: population.Places = population.create_places(fname)
+    assert (504, 3) == places.place_data.shape
+    assert {i: i for i in range(504)} == places.place_id_map
 
 
 def test_create_residents():
     residents = _init_data()[3]
-    assert (20, population.N_P_ELEMENTS) == residents.shape
+    assert (1200, population.N_P_ELEMENTS) == residents.shape
 
     resident = residents[17]
-    assert np.array_equal(np.array([17, 5, 4, 4, 102, 104, 106, 107, 108,
+    assert np.array_equal(np.array([17, 0, 17, 17, 500, 503, 502, 501,
                                     common.SUSCEPTIBLE, np.iinfo(np.uint32).max], dtype=np.uint32),
                           resident)
 
 
 def test_select_next_place():
-    schedule_data, _, place_data, residents, params = _init_data()
+    schedule_data, _, places, residents, params = _init_data()
     duration_matrix = core.create_duration_matrix(params)
     trans_matrix = core.create_trans_matrix(params["transition_matrix"])
-    model = core.Model(schedule_data, residents, place_data, 0.0, trans_matrix, duration_matrix,
-                       params["random_seed"])
+    model = core.Model(MPI.COMM_WORLD, schedule_data, residents, places, 0.0, trans_matrix, duration_matrix,
+                       params["random_seed"], params)
     for i in range(144):
         model.select_next_place(i)
         for x in range(20):
@@ -95,16 +99,16 @@ def test_select_next_place():
 
 
 def test_select_next_place_count():
-    schedule_data, _, place_data, residents, params = _init_data()
+    schedule_data, _, places, residents, params = _init_data()
     duration_matrix = core.create_duration_matrix(params)
     trans_matrix = core.create_trans_matrix(params["transition_matrix"])
 
-    model = core.Model(schedule_data, residents, place_data, 0.0, trans_matrix, duration_matrix,
-                       params["random_seed"])
+    model = core.Model(MPI.COMM_WORLD, schedule_data, residents, places, 0.0, trans_matrix, duration_matrix,
+                       params["random_seed"], params)
     for i in range(144):
         model.select_next_place(i)
         counts = {}
-        for x in range(20):
+        for x in range(residents.shape[0]):
             place_idx = residents[x, population.P_CURRENT_PLACE_IDX]
             if place_idx in counts:
                 counts[place_idx] += 1
@@ -112,16 +116,16 @@ def test_select_next_place_count():
                 counts[place_idx] = 1
 
         for k, v in counts.items():
-            assert model.place_data[k, population.PL_PERSON_COUNT_IDX] == v
+            assert model.place_data.place_data[k, population.PL_PERSON_COUNT_IDX] == v, f"{k}, {v} at {i}"
 
 
 def test_select_next_place_inf_count():
-    schedule_data, _, place_data, residents, params = _init_data()
+    schedule_data, _, places, residents, params = _init_data()
     duration_matrix = core.create_duration_matrix(params)
     trans_matrix = core.create_trans_matrix(params["transition_matrix"])
 
-    model = core.Model(schedule_data, residents, place_data, 0.0, trans_matrix, duration_matrix,
-                       params["random_seed"])
+    model = core.Model(MPI.COMM_WORLD, schedule_data, residents, places, 0.0, trans_matrix, duration_matrix,
+                       params["random_seed"], params)
     residents[0, population.P_STATE_IDX] = common.INFECTED_ASYMP
     residents[1, population.P_STATE_IDX] = common.PRESYMPTOMATIC
     residents[17, population.P_STATE_IDX] = common.INFECTED_SYMP
@@ -129,7 +133,7 @@ def test_select_next_place_inf_count():
     for i in range(144):
         model.select_next_place(i)
         inf_counts = {}
-        for x in range(20):
+        for x in range(residents.shape[0]):
             inf_x = x == 0 or x == 1 or x == 17
             place_idx = residents[x, population.P_CURRENT_PLACE_IDX]
             if inf_x:
@@ -139,19 +143,16 @@ def test_select_next_place_inf_count():
                     inf_counts[place_idx] = 1
 
         for k, v in inf_counts.items():
-            assert model.place_data[k, population.PL_INFECTED_COUNT_IDX] == v
+            assert model.place_data.place_data[k, population.PL_INFECTED_COUNT_IDX] == v
 
 
 def test_transition_matrix():
-    schedule_data, _, place_data, all_residents, params = _init_data()
-    # update everyone with schedule 17 to same restaurant
-    residents = all_residents[all_residents[:, population.P_SCHEDULE_IDX] == 17]
+    schedule_data, _, places, all_residents, params = _init_data()
+    duration_matrix = core.create_duration_matrix(params)
+    trans_matrix = core.create_trans_matrix(params["transition_matrix"])
 
-    transition_matrix = params["transition_matrix"]
-    seed = params["random_seed"]
-    model = core.Model(schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
-                       core.create_duration_matrix(params), seed)
-
+    model = core.Model(MPI.COMM_WORLD, schedule_data, all_residents, places, 0.0, trans_matrix, duration_matrix,
+                       params["random_seed"], params)
     # test cum sum output
     np_trans_matrix = model.trans_matrix
     exp = np.array([[0.0, 0.0, 0., 0., 0., 0., 0., 0., ],
@@ -191,8 +192,8 @@ def test_disease_update_always_inf():
     transition_matrix = params["transition_matrix"]
     seed = params["random_seed"]
     params["stoe"] = 1.0
-    model = core.Model(schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
-                       core.create_duration_matrix(params), seed)
+    model = core.Model(MPI.COMM_WORLD, schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
+                       core.create_duration_matrix(params), seed, params)
 
     model.select_next_place(44)
     assert np.all(residents[1:, population.P_STATE_IDX] == common.SUSCEPTIBLE)
@@ -229,8 +230,8 @@ def test_disease_update_never_inf():
     transition_matrix = params["transition_matrix"]
     seed = params["random_seed"]
     params["stoe"] = 0.0
-    model = core.Model(schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
-                       core.create_duration_matrix(params), seed)
+    model = core.Model(MPI.COMM_WORLD, schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
+                       core.create_duration_matrix(params), seed, params)
 
     model.select_next_place(44)
     assert np.all(residents[1:, population.P_STATE_IDX] == common.SUSCEPTIBLE)
@@ -263,8 +264,8 @@ def test_disease_update_50p_inf():
     transition_matrix = params["transition_matrix"]
     seed = params["random_seed"]
     params["stoe"] = 0.5
-    model = core.Model(schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
-                       core.create_duration_matrix(params), seed)
+    model = core.Model(MPI.COMM_WORLD, schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
+                       core.create_duration_matrix(params), seed, params)
 
     model.select_next_place(44)
     assert np.all(residents[1:, population.P_STATE_IDX] == common.SUSCEPTIBLE)
@@ -302,8 +303,8 @@ def test_update_disease_states1():
     # force transition from E to P
     transition_matrix["E"]["P"] = 1.0
     transition_matrix["E"]["I_A"] = 0
-    model = core.Model(schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
-                       core.create_duration_matrix(params), seed)
+    model = core.Model(MPI.COMM_WORLD, schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
+                       core.create_duration_matrix(params), seed, params)
     model.update_disease_state(10)
     assert np.all(residents[:2, population.P_STATE_IDX] == common.PRESYMPTOMATIC)
     assert np.all(residents[2:, population.P_STATE_IDX] == common.SUSCEPTIBLE)
@@ -311,8 +312,8 @@ def test_update_disease_states1():
     # try 75, 25 chance
     transition_matrix["E"]["P"] = .75
     transition_matrix["E"]["I_A"] = .25
-    model = core.Model(schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
-                       core.create_duration_matrix(params), seed)
+    model = core.Model(MPI.COMM_WORLD, schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
+                       core.create_duration_matrix(params), seed, params)
     n_presym = 0
     n_ia = 0
     for _ in range(4000):
@@ -340,8 +341,8 @@ def test_update_disease_states2():
     # force transition from E to P
     transition_matrix["E"]["P"] = 1.0
     transition_matrix["E"]["I_A"] = 0
-    model = core.Model(schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
-                       core.create_duration_matrix(params), seed)
+    model = core.Model(MPI.COMM_WORLD, schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
+                       core.create_duration_matrix(params), seed, params)
     model.update_disease_state(10.0)
     assert residents[1, population.P_STATE_IDX] == common.EXPOSED
     assert residents[2, population.P_STATE_IDX] == common.INFECTED_SYMP
@@ -371,65 +372,65 @@ def test_disease_state_paths1():
 
     params["presymptomatic_duration_k"] = 12
     params["presymptomatic_duration_mean"] = 4.92
-    model = core.Model(schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
-                       core.create_duration_matrix(params), seed)
+    model = core.Model(MPI.COMM_WORLD, schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
+                       core.create_duration_matrix(params), seed, params)
     # go to caf and become exposed
-    tick = 44
+    tick = 34
     model.select_next_place(tick)
     model.update_disease_state(tick)
 
     # 9 and 13 should be colocated and exposed to 0
-    assert residents[9, population.P_STATE_IDX] == common.EXPOSED
-    assert residents[13, population.P_STATE_IDX] == common.EXPOSED
-    duration_t = residents[9, population.P_NEXT_STATE_T_IDX]
+    assert residents[6, population.P_STATE_IDX] == common.EXPOSED
+    assert residents[12, population.P_STATE_IDX] == common.EXPOSED
+    duration_t = residents[6, population.P_NEXT_STATE_T_IDX]
     # https://homepage.divms.uiowa.edu/~mbognar/applets/gamma.html
     assert duration_t > 0.5 * 96 + tick and duration_t < 8.0 * 96 + tick
-    duration_t = residents[13, population.P_NEXT_STATE_T_IDX]
+    duration_t = residents[12, population.P_NEXT_STATE_T_IDX]
     # https://homepage.divms.uiowa.edu/~mbognar/applets/gamma.html
     assert duration_t > 0.5 * 96 + tick and duration_t < 8.0 * 96 + tick
 
-    # now follow just 13 using its duration_t
+    # now follow just 12 using its duration_t
     model.update_disease_state(duration_t - 1)
-    assert residents[13, population.P_STATE_IDX] == common.EXPOSED
+    assert residents[12, population.P_STATE_IDX] == common.EXPOSED
 
     tick = duration_t
     model.update_disease_state(duration_t)
-    assert residents[13, population.P_STATE_IDX] == common.PRESYMPTOMATIC
-    duration_t = residents[13, population.P_NEXT_STATE_T_IDX]
+    assert residents[12, population.P_STATE_IDX] == common.PRESYMPTOMATIC
+    duration_t = residents[12, population.P_NEXT_STATE_T_IDX]
     assert duration_t > 1.9 * common.TICKS_PER_DAY + tick and duration_t < 8.0 * common.TICKS_PER_DAY + tick
 
     model.update_disease_state(duration_t - 1)
-    assert residents[13, population.P_STATE_IDX] == common.PRESYMPTOMATIC
+    assert residents[12, population.P_STATE_IDX] == common.PRESYMPTOMATIC
 
     tick = duration_t
     model.update_disease_state(duration_t)
-    assert residents[13, population.P_STATE_IDX] == common.INFECTED_SYMP
-    duration_t = residents[13, population.P_NEXT_STATE_T_IDX]
-    assert duration_t > 2.5 * common.TICKS_PER_DAY + tick and duration_t < 20.0 * common.TICKS_PER_DAY + tick
+    assert residents[12, population.P_STATE_IDX] == common.INFECTED_SYMP
+    duration_t = residents[12, population.P_NEXT_STATE_T_IDX]
+    assert duration_t > 2.5 * common.TICKS_PER_DAY + tick and duration_t < 22.0 * common.TICKS_PER_DAY + tick
 
     model.update_disease_state(duration_t - 1)
-    assert residents[13, population.P_STATE_IDX] == common.INFECTED_SYMP
+    assert residents[12, population.P_STATE_IDX] == common.INFECTED_SYMP
 
     tick = duration_t
     model.update_disease_state(duration_t)
-    assert residents[13, population.P_STATE_IDX] == common.HOSPITALIZED
-    duration_t = residents[13, population.P_NEXT_STATE_T_IDX]
+    assert residents[12, population.P_STATE_IDX] == common.HOSPITALIZED
+    duration_t = residents[12, population.P_NEXT_STATE_T_IDX]
     assert duration_t > 1.5 * common.TICKS_PER_DAY + tick and duration_t < 12.5 * common.TICKS_PER_DAY + tick
 
     model.update_disease_state(duration_t - 1)
-    assert residents[13, population.P_STATE_IDX] == common.HOSPITALIZED
+    assert residents[12, population.P_STATE_IDX] == common.HOSPITALIZED
 
     tick = duration_t
     model.update_disease_state(duration_t)
-    assert residents[13, population.P_STATE_IDX] == common.RECOVERED
-    duration_t = residents[13, population.P_NEXT_STATE_T_IDX]
+    assert residents[12, population.P_STATE_IDX] == common.RECOVERED
+    duration_t = residents[12, population.P_NEXT_STATE_T_IDX]
     assert duration_t > 50 * common.TICKS_PER_DAY + tick and duration_t < 400 * common.TICKS_PER_DAY + tick
 
     model.update_disease_state(duration_t - 1)
-    assert residents[13, population.P_STATE_IDX] == common.RECOVERED
+    assert residents[12, population.P_STATE_IDX] == common.RECOVERED
 
     model.update_disease_state(duration_t)
-    assert residents[13, population.P_STATE_IDX] == common.SUSCEPTIBLE
+    assert residents[12, population.P_STATE_IDX] == common.SUSCEPTIBLE
 
 
 def test_disease_state_paths2():
@@ -447,33 +448,32 @@ def test_disease_state_paths2():
 
     params["asymptomatic_duration_k"] = 10
     params["asymptomatic_duration_mean"] = 1
-    model = core.Model(schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
-                       core.create_duration_matrix(params), seed)
-
+    model = core.Model(MPI.COMM_WORLD, schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
+                       core.create_duration_matrix(params), seed, params)
     # go to lunch and become exposed
-    tick = 44
+    tick = 34
     model.select_next_place(tick)
     model.update_disease_state(tick)
-    assert residents[9, population.P_STATE_IDX] == common.EXPOSED
-    duration_t = residents[9, population.P_NEXT_STATE_T_IDX]
+    assert residents[6, population.P_STATE_IDX] == common.EXPOSED
+    duration_t = residents[6, population.P_NEXT_STATE_T_IDX]
     # https://homepage.divms.uiowa.edu/~mbognar/applets/gamma.html
     assert duration_t > 0.5 * common.TICKS_PER_DAY + tick and duration_t < 8.0 * common.TICKS_PER_DAY + tick
 
     tick = duration_t
     model.update_disease_state(duration_t)
-    assert residents[9, population.P_STATE_IDX] == common.INFECTED_ASYMP
-    duration_t = residents[9, population.P_NEXT_STATE_T_IDX]
+    assert residents[6, population.P_STATE_IDX] == common.INFECTED_ASYMP
+    duration_t = residents[6, population.P_NEXT_STATE_T_IDX]
     assert duration_t > 0.5 * common.TICKS_PER_DAY + tick and duration_t < 2.0 * common.TICKS_PER_DAY + tick
 
     tick = duration_t
     model.update_disease_state(duration_t)
-    assert residents[9, population.P_STATE_IDX] == common.RECOVERED
-    duration_t = residents[9, population.P_NEXT_STATE_T_IDX]
+    assert residents[6, population.P_STATE_IDX] == common.RECOVERED
+    duration_t = residents[6, population.P_NEXT_STATE_T_IDX]
     assert duration_t > 50 * common.TICKS_PER_DAY + tick and duration_t < 400 * common.TICKS_PER_DAY + tick
 
     tick = duration_t
     model.update_disease_state(duration_t)
-    assert residents[9, population.P_STATE_IDX] == common.SUSCEPTIBLE
+    assert residents[6, population.P_STATE_IDX] == common.SUSCEPTIBLE
     duration_t = residents[0, population.P_NEXT_STATE_T_IDX]
 
 
@@ -495,39 +495,39 @@ def test_disease_state_paths3():
 
     params["presymptomatic_duration_k"] = 12
     params["presymptomatic_duration_mean"] = 4.92
-    model = core.Model(schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
-                       core.create_duration_matrix(params), seed)
+    model = core.Model(MPI.COMM_WORLD, schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
+                       core.create_duration_matrix(params), seed, params)
     # go to lunch and become exposed
-    tick = 44
+    tick = 34
     model.select_next_place(tick)
     model.update_disease_state(tick)
-    assert residents[13, population.P_STATE_IDX] == common.EXPOSED
-    duration_t = residents[13, population.P_NEXT_STATE_T_IDX]
+    assert residents[12, population.P_STATE_IDX] == common.EXPOSED
+    duration_t = residents[12, population.P_NEXT_STATE_T_IDX]
     # https://homepage.divms.uiowa.edu/~mbognar/applets/gamma.html
     assert duration_t > 0.5 * common.TICKS_PER_DAY + tick and duration_t < 8.0 * common.TICKS_PER_DAY + tick
 
     tick = duration_t
     model.update_disease_state(duration_t)
-    assert residents[13, population.P_STATE_IDX] == common.PRESYMPTOMATIC
-    duration_t = residents[13, population.P_NEXT_STATE_T_IDX]
+    assert residents[12, population.P_STATE_IDX] == common.PRESYMPTOMATIC
+    duration_t = residents[12, population.P_NEXT_STATE_T_IDX]
     assert duration_t > 1.9 * common.TICKS_PER_DAY + tick and duration_t < 8.0 * common.TICKS_PER_DAY + tick
 
     tick = duration_t
     model.update_disease_state(duration_t)
-    assert residents[13, population.P_STATE_IDX] == common.INFECTED_SYMP
-    duration_t = residents[13, population.P_NEXT_STATE_T_IDX]
+    assert residents[12, population.P_STATE_IDX] == common.INFECTED_SYMP
+    duration_t = residents[12, population.P_NEXT_STATE_T_IDX]
     assert duration_t > 2.5 * common.TICKS_PER_DAY + tick and duration_t < 20.0 * common.TICKS_PER_DAY + tick
 
     tick = duration_t
     model.update_disease_state(duration_t)
-    assert residents[13, population.P_STATE_IDX] == common.RECOVERED
-    duration_t = residents[13, population.P_NEXT_STATE_T_IDX]
+    assert residents[12, population.P_STATE_IDX] == common.RECOVERED
+    duration_t = residents[12, population.P_NEXT_STATE_T_IDX]
     assert duration_t > 50 * common.TICKS_PER_DAY + tick and duration_t < 400 * common.TICKS_PER_DAY + tick
 
     tick = duration_t
     model.update_disease_state(duration_t)
-    assert residents[13, population.P_STATE_IDX] == common.SUSCEPTIBLE
-    duration_t = residents[13, population.P_NEXT_STATE_T_IDX]
+    assert residents[12, population.P_STATE_IDX] == common.SUSCEPTIBLE
+    duration_t = residents[12, population.P_NEXT_STATE_T_IDX]
 
 
 def test_disease_state_paths4():
@@ -551,34 +551,34 @@ def test_disease_state_paths4():
 
     params["presymptomatic_duration_k"] = 12
     params["presymptomatic_duration_mean"] = 4.92
-    model = core.Model(schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
-                       core.create_duration_matrix(params), seed)
+    model = core.Model(MPI.COMM_WORLD, schedule_data, residents, place_data, params["stoe"], core.create_trans_matrix(transition_matrix),
+                       core.create_duration_matrix(params), seed, params)
     # go to lunch and become exposed
-    tick = 44
+    tick = 34
     model.select_next_place(tick)
     model.update_disease_state(tick)
-    assert residents[9, population.P_STATE_IDX] == common.EXPOSED
-    duration_t = residents[9, population.P_NEXT_STATE_T_IDX]
+    assert residents[6, population.P_STATE_IDX] == common.EXPOSED
+    duration_t = residents[6, population.P_NEXT_STATE_T_IDX]
     # https://homepage.divms.uiowa.edu/~mbognar/applets/gamma.html
     assert duration_t > 0.5 * common.TICKS_PER_DAY + tick and duration_t < 8.0 * common.TICKS_PER_DAY + tick
 
     tick = duration_t
     model.update_disease_state(duration_t)
-    assert residents[9, population.P_STATE_IDX] == common.PRESYMPTOMATIC
-    duration_t = residents[9, population.P_NEXT_STATE_T_IDX]
+    assert residents[6, population.P_STATE_IDX] == common.PRESYMPTOMATIC
+    duration_t = residents[6, population.P_NEXT_STATE_T_IDX]
     assert duration_t > 1.9 * common.TICKS_PER_DAY + tick and duration_t < 8.0 * common.TICKS_PER_DAY + tick
 
     tick = duration_t
     model.update_disease_state(duration_t)
-    assert residents[9, population.P_STATE_IDX] == common.INFECTED_SYMP
-    duration_t = residents[9, population.P_NEXT_STATE_T_IDX]
+    assert residents[6, population.P_STATE_IDX] == common.INFECTED_SYMP
+    duration_t = residents[6, population.P_NEXT_STATE_T_IDX]
     assert duration_t > 2.5 * common.TICKS_PER_DAY + tick and duration_t < 20.0 * common.TICKS_PER_DAY + tick
 
     tick = duration_t
     model.update_disease_state(duration_t)
-    assert residents[9, population.P_STATE_IDX] == common.HOSPITALIZED
-    duration_t = residents[9, population.P_NEXT_STATE_T_IDX]
+    assert residents[6, population.P_STATE_IDX] == common.HOSPITALIZED
+    duration_t = residents[6, population.P_NEXT_STATE_T_IDX]
     assert duration_t > 1.5 * common.TICKS_PER_DAY + tick and duration_t < 12.5 * common.TICKS_PER_DAY + tick
 
     model.update_disease_state(duration_t)
-    assert residents[9, population.P_STATE_IDX] == common.DEAD
+    assert residents[6, population.P_STATE_IDX] == common.DEAD

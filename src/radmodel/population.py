@@ -9,24 +9,26 @@ from .common import TICKS_PER_DAY, TICK_DURATION, MIDNIGHT, SUSCEPTIBLE
 P_DATA_ID_IDX = 0
 P_DATA_SCHEDULE_IDX = 1
 P_DATA_CELL_IDX = 2
-P_DATA_ACTS_IDX = 3
-P_DATA_CAFS_IDX = 4
-P_DATA_OUT_IDX = 5
+P_DATA_CAF_IDX = 3
+P_DATA_MACT_IDX = 4
+P_DATA_NACT_IDX = 5
+P_DATA_EACT_IDX = 6
 
-P_ACTS_COUNT = 2
-P_CAFS_COUNT = 2
+# P_ACTS_COUNT = 2
+# P_CAFS_COUNT = 2
 
 P_ID_IDX = 0
 P_SCHEDULE_IDX = 1
 P_CURRENT_PLACE_IDX = 2
 P_CELL_IDX = 3
-P_ACTS_IDX = 4
-P_CAFS_IDX = P_ACTS_IDX + P_ACTS_COUNT
-P_OUTDOOR_IDX = P_CAFS_IDX + P_CAFS_COUNT
+P_CAF_IDX = 4
+P_MACT_IDX = 5
+P_NACT_IDX = 6
+P_EACT_IDX = 7
 # person's current disease state
-P_STATE_IDX = P_OUTDOOR_IDX + 1
+P_STATE_IDX = 8
 # next transition time
-P_NEXT_STATE_T_IDX = P_STATE_IDX + 1
+P_NEXT_STATE_T_IDX = 9
 # total number columns in residents data
 N_P_ELEMENTS = P_NEXT_STATE_T_IDX + 1
 
@@ -38,9 +40,10 @@ PL_INFECTED_COUNT_IDX = 2
 # index into the np array of the person data
 SCHEDULE_PLACE_TYPE_MAP = {
     "cell": P_CELL_IDX,
-    "activity": P_ACTS_IDX,
-    "cafeteria": P_CAFS_IDX,
-    "outdoor": P_OUTDOOR_IDX,
+    "noon_act": P_NACT_IDX,
+    "morning_act": P_MACT_IDX,
+    "evening_act": P_EACT_IDX,
+    "cafeteria": P_CAF_IDX
 }
 
 
@@ -130,6 +133,7 @@ class Places:
         self.place_data[places, PL_PERSON_COUNT_IDX] = counts
 
     def update_infected_counts(self, places: np.array, counts: np.array):
+        self.place_data[:, PL_INFECTED_COUNT_IDX:] = 0
         self.place_data[places, PL_INFECTED_COUNT_IDX] = counts
 
     def get_counts(self, place_idxs: np.array):
@@ -184,52 +188,15 @@ def create_residents(name: Union[str, os.PathLike], place_id_map: Dict[int, int]
             pid = int(row[P_DATA_ID_IDX])
             sched_id = schedule_id_map[int(row[P_DATA_SCHEDULE_IDX])]
             cell_id = place_id_map[int(row[P_DATA_CELL_IDX])]
-            act_ids = [place_id_map[i] for i in _parse_resident_place_entry(row[P_DATA_ACTS_IDX])]
-            caf_ids = [place_id_map[i] for i in _parse_resident_place_entry(row[P_DATA_CAFS_IDX])]
-            outdoor_id = place_id_map[int(row[P_DATA_OUT_IDX])]
+            caf_id = place_id_map[int(row[P_DATA_CAF_IDX])]
+            mact_id = place_id_map[int(row[P_DATA_MACT_IDX])]
+            nact_id = place_id_map[int(row[P_DATA_NACT_IDX])]
+            eact_id = place_id_map[int(row[P_DATA_EACT_IDX])]
+            resident_data[i, : -2] = pid, sched_id, cell_id, cell_id, caf_id, mact_id, nact_id, eact_id
+
+            # act_ids = [place_id_map[i] for i in _parse_resident_place_entry(row[P_DATA_ACTS_IDX])]
+            # caf_ids = [place_id_map[i] for i in _parse_resident_place_entry(row[P_DATA_CAFS_IDX])]
+            # outdoor_id = place_id_map[int(row[P_DATA_OUT_IDX])]
             # set current place to cell id
-            resident_data[i, : -2] = pid, sched_id, cell_id, cell_id, act_ids[0], act_ids[1], caf_ids[0], caf_ids[1], \
-                outdoor_id
 
     return resident_data
-
-
-# class Prisoner(core.Agent):
-
-#     TYPE = 0
-
-#     PID_IDX = 0
-#     CELL_IDX = 1
-#     CURRENT_PLANCE = 2
-#     SCHEDULE_IDX = 3
-
-#     def __init__(self, idx: int, prisoner_data: np.array, rank):
-#         super().__init__(id=idx, type=Prisoner.TYPE, rank=rank)
-#         self.idx = idx
-#         self.pid = prisoner_data[idx, Prisoner.PID_IDX]
-#         self.schedule_id = prisoner_data[idx, Prisoner.SCHEDULE_IDX]
-#         self.cell_id = prisoner_data[idx, Prisoner.CELL_IDX]
-#         self.prisoner_data = prisoner_data
-
-
-# def init_prisoner_data(fname: Union[str, os.PathLike], schedule_id_map: Dict[int, int]):
-#     n_persons = 0
-#     with open(fname) as fin:
-#         next(fin)
-#         for _ in fin:
-#             n_persons += 1
-
-#     prisoner_data = np.zeros((n_persons, 4), dtype=np.int64)
-#     with open(fname) as fin:
-#         reader = csv.reader(fin)
-#         next(reader)
-#         for i, row in enumerate(reader):
-#             pid, cell, schedule = [int(x) for x in row]
-#             prisoner_data[i, :] = pid, cell, cell, schedule_id_map[schedule]
-
-#     return prisoner_data
-
-
-# def create_prisoners(prisoner_data: np.array, rank: int):
-#     for i in range(prisoner_data.shape[0]):
-#         yield Prisoner(i, prisoner_data, rank)
