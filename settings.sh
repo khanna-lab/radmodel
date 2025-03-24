@@ -6,6 +6,12 @@ module load openmpi/4.1.2-s5wtoqb
 MPI_LIB="/oscar/rt/9.2/software/0.20-generic/0.20.1/opt/spack/linux-rhel9-x86_64_v3/gcc-11.3.1/openmpi-4.1.2-s5wtoqbqirz4ivubo6uzp2ndglheablu/lib"
 export LD_LIBRARY_PATH=$MPI_LIB:$LD_LIBRARY_PATH
 
+# silence cuda related warnings
+export OMPI_MCA_opal_warn_on_missing_libcuda=0
+
+# Fix UCX memory hook warning
+export OMPI_MCA_opal_common_ucx_opal_mem_hooks=1
+
 #source /gpfs/data/akhann16/sfw/pyenvs/repast4py-py3.11/bin/activate
 source /oscar/home/akhann16/sfw/pyenvs/radmodel-py3.11/bin/activate
 
@@ -14,3 +20,6 @@ source /oscar/home/akhann16/sfw/pyenvs/radmodel-py3.11/bin/activate
 #export R_LIBS_USER=/gpfs/data/akhann16/sfw/rlibs/4.3.1
 #SWIFT_T_HOME=/oscar/data/akhann16/sfw/gcc-11.3.1/openmpi-4.1.2/swift-t-02062024
 #export PATH=$SWIFT_T_HOME/stc/bin:$PATH
+
+# To run - on the compute node, do:
+## mpirun -n 1 radmodel params/radmodel_params.yaml

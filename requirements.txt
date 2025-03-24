@@ -26,7 +26,7 @@ packaging==24.1
 pluggy==1.5.0
 pytest==8.3.2
 PyYAML==6.0.2
--e git+ssh://git@github.com/khanna-lab/radmodel.git@4c52324ab3155d067d082ff303900dd7141538a6#egg=radmodel
+-e git+ssh://git@github.com/khanna-lab/radmodel.git@cb2add9c1a0614e61f06a68bf9dd272d25a27623#egg=radmodel
 repast4py==1.1.5
 sympy==1.13.2
 torch==2.4.0
