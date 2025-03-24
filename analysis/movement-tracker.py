@@ -92,3 +92,33 @@ plt.tight_layout()
 
 
 plt.savefig(Path("analysis", "cafeteria_occupancy.png", dpi=300))
+
+
+## yard
+### data
+yard_counts = merged_movement_places[merged_movement_places["type"] == "yard"]
+print(yard_counts.head())
+
+### plot
+plt.figure(figsize=(10, 5))
+for yard_name, group in yard_counts.groupby("name"):
+    plt.plot(group["tick"], group["person_count"], label=yard_name)
+
+hour_ticks = list(range(0, 96, 4))  
+
+hour_labels = [f"{(h % 12) or 12} {'AM' if h < 12 else 'PM'}" for h in range(24)]
+print(hour_labels)
+
+plt.xticks(hour_ticks, hour_labels, rotation=45)
+
+
+plt.xlim(0, 96)
+plt.xlabel("Time of Day")
+plt.ylabel("People in yard")
+plt.title("yard Occupancy – First Day Only")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+
+
+plt.savefig(Path("analysis", "yard_occupancy.png", dpi=300))
