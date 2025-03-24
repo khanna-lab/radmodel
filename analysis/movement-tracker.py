@@ -61,7 +61,7 @@ plt.grid(True)
 plt.tight_layout()
 
 #plt.show()
-plt.savefig(Path("analysis", "gym_occupancy.png", dpi=300))
+plt.savefig(Path("analysis", "gym_occupancy.png"), dpi=300)
 
 
 ## cafeteria
@@ -91,7 +91,7 @@ plt.grid(True)
 plt.tight_layout()
 
 
-plt.savefig(Path("analysis", "cafeteria_occupancy.png", dpi=300))
+plt.savefig(Path("analysis", "cafeteria_occupancy.png"), dpi=300)
 
 
 ## yard
@@ -121,4 +121,47 @@ plt.grid(True)
 plt.tight_layout()
 
 
-plt.savefig(Path("analysis", "yard_occupancy.png", dpi=300))
+plt.savefig(Path("analysis", "yard_occupancy.png"), dpi=300)
+
+
+
+# Visualize movement by person ---------
+
+
+# Select person
+person_id = 100
+
+# Get schedule_id for person
+person_schedule_id = input_residents_df.loc[input_residents_df["person_id"] == person_id, "schedule_id"].iloc[0]
+
+# Get schedule_id for person
+person_schedule_id = input_residents_df.loc[input_residents_df["person_id"] == person_id, "schedule_id"].iloc[0]
+
+# Get full schedule for that ID
+person_schedule = input_schedules_df[input_schedules_df["schedule_id"] == person_schedule_id]
+
+# Merge with place info to get type and name
+schedule_annotated = person_schedule.merge(input_places_df, left_on="place_type", right_on="type")
+
+# Define order and map place_type to y-axis codes
+place_type_order = ["cell", "cafeteria", "gym", "yard", "education"]
+place_type_to_code = {ptype: i for i, ptype in enumerate(place_type_order)}
+schedule_annotated["y"] = schedule_annotated["place_type"].map(place_type_to_code)
+
+# Plot: y = coded place type
+plt.figure(figsize=(12, 4))
+plt.plot(schedule_annotated["start"], schedule_annotated["y"], marker="o", linestyle="-")
+
+# Set y-axis to show place types
+plt.yticks(range(len(place_type_order)), place_type_order)
+
+
+plt.xlabel("Tick (15-min intervals)")
+plt.ylabel("Location")
+plt.title(f"Movement Schedule for Person {person_id}")
+plt.grid(True)
+plt.tight_layout()
+plt.savefig(Path("analysis", f"person_{person_id}_movement.png"), dpi=300)
+plt.show()
+
+
