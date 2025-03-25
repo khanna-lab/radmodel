@@ -159,10 +159,8 @@ place_type_to_code = {ptype: i for i, ptype in enumerate(place_type_order)}
 print(place_type_to_code)
 schedule_annotated["y"] = schedule_annotated["type"].map(place_type_to_code)
 
-plt.figure(figsize=(12, 4))
-#plt.plot(schedule_annotated["time"], schedule_annotated["place_type"], marker="o", linestyle="-")
+plt.figure(figsize=(8, 3))
 plt.plot(schedule_annotated["time"], schedule_annotated["y"], marker="o", linestyle="-")
-#plt.yticks(range(len(place_type_order)), place_type_order)
 plt.yticks(range(len(place_type_order)), place_type_order)
 
 plt.xlabel("Time (24 hour format)")
