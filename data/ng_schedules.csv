@@ -4,8 +4,8 @@ schedule_id,start,place_type,risk,time
 0,510,morning_act,1,0830
 0,630,cell,1,1030
 0,675,cafeteria,1,1115
-0,750,noon_act,2,1230
+0,750,noon_act,1,1230
 0,930,cell,1,1530
 0,960,cafeteria,1,1600
-0,1080,evening_act,1.5,1800
+0,1080,evening_act,1,1800
 0,1230,cell,1,2030
