@@ -3,6 +3,8 @@
 from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd 
+from matplotlib.ticker import MultipleLocator, FuncFormatter
+
 
 # Load Data -------
 
@@ -23,6 +25,14 @@ input_schedules_df = pd.read_csv(input_schedules)
 movement_counts_csv = Path("output", "counts_by_place_5.csv")
 movement_counts_df = pd.read_csv(movement_counts_csv)
 #print(movement_counts_df.head(), "\n")
+
+
+# Helpfer functions ---------
+# Format ticks as HH:MM
+def format_time(x, pos):
+    hours = int(x) // 60
+    minutes = int(x) % 60
+    return f"{hours:02d}:{minutes:02d}"
 
 
 # Merge places with output data ---------
@@ -150,7 +160,7 @@ person_schedule["place_id"] = person_schedule["place_type"].apply(lambda pt: per
 # Merge to get place names and types (now that we have place_id)
 schedule_annotated = person_schedule.merge(input_places_df, on="place_id")
 schedule_annotated["duration"] = schedule_annotated["start"].shift(-1) - schedule_annotated["start"] #duration computations
-schedule_annotated.loc[schedule_annotated.index[-1], "duration"] = 1439 - schedule_annotated["start"].iloc[-1] #last row
+schedule_annotated.loc[schedule_annotated.index[-1], "duration"] = 1440 - schedule_annotated["start"].iloc[-1] #last row
 
 print(schedule_annotated)
 print(schedule_annotated["place_type"].value_counts())
@@ -178,14 +188,23 @@ plt.show()
 
 # grantt chart
 plt.figure(figsize=(10, 3))
+
+print(schedule_annotated.tail(1)[["start", "duration"]])
+
 for _, row in schedule_annotated.iterrows():
-    start = row["time"]
+    start = row["start"]
     duration = row["duration"]
     y_pos = place_type_to_code[row["type"]]
     plt.broken_barh([(start, duration)], (y_pos - 0.4, 0.8), facecolors="tab:blue")
 
 plt.yticks(range(len(place_type_order)), place_type_order)
-plt.xlabel("Time (24 hour format)")
+
+plt.xlim(0, 1460) #limit to one day
+plt.gca().xaxis.set_major_locator(MultipleLocator(120))  # every 2 hours
+plt.gca().xaxis.set_major_formatter(FuncFormatter(format_time))
+plt.xticks(rotation=45)
+
+plt.xlabel("Time (HH:MM format)")
 plt.ylabel("Location")
 plt.title(f"Movement Schedule for Person {person_id}")
 plt.grid(True)
