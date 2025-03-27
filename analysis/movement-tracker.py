@@ -149,6 +149,9 @@ person_schedule["place_id"] = person_schedule["place_type"].apply(lambda pt: per
 
 # Merge to get place names and types (now that we have place_id)
 schedule_annotated = person_schedule.merge(input_places_df, on="place_id")
+schedule_annotated["duration"] = schedule_annotated["start"].shift(-1) - schedule_annotated["start"] #duration computations
+schedule_annotated.loc[schedule_annotated.index[-1], "duration"] = 1439 - schedule_annotated["start"].iloc[-1] #last row
+
 print(schedule_annotated)
 print(schedule_annotated["place_type"].value_counts())
 print(schedule_annotated[["place_type", "name", "type"]])
@@ -173,3 +176,20 @@ plt.savefig(Path("analysis", f"person_{person_id}_movement.png"), dpi=300)
 plt.show()
 
 
+# grantt chart
+plt.figure(figsize=(10, 3))
+for _, row in schedule_annotated.iterrows():
+    start = row["time"]
+    duration = row["duration"]
+    y_pos = place_type_to_code[row["type"]]
+    plt.broken_barh([(start, duration)], (y_pos - 0.4, 0.8), facecolors="tab:blue")
+
+plt.yticks(range(len(place_type_order)), place_type_order)
+plt.xlabel("Time (24 hour format)")
+plt.ylabel("Location")
+plt.title(f"Movement Schedule for Person {person_id}")
+plt.grid(True)
+plt.tight_layout()
+
+plt.savefig(Path("analysis", f"person_{person_id}_gantt.png"), dpi=300)
+plt.show()
