@@ -4,7 +4,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd 
 from matplotlib.ticker import MultipleLocator, FuncFormatter
-
+from matplotlib.cm import get_cmap
+from matplotlib.colors import to_hex
 
 # Load Data -------
 
@@ -137,7 +138,7 @@ plt.savefig(Path("analysis", "yard_occupancy.png"))
 
 
 
-# Visualize movement by person ---------
+# Visualize movement by one person ---------
 
 
 # Select person
@@ -159,6 +160,7 @@ person_schedule["place_id"] = person_schedule["place_type"].apply(lambda pt: per
 
 # Merge to get place names and types (now that we have place_id)
 schedule_annotated = person_schedule.merge(input_places_df, on="place_id")
+schedule_annotated = schedule_annotated.sort_values("time").reset_index(drop=True) #ensure rows are inorder
 schedule_annotated["duration"] = schedule_annotated["start"].shift(-1) - schedule_annotated["start"] #duration computations
 schedule_annotated.loc[schedule_annotated.index[-1], "duration"] = 1440 - schedule_annotated["start"].iloc[-1] #last row
 
@@ -211,4 +213,92 @@ plt.grid(True)
 plt.tight_layout()
 
 plt.savefig(Path("analysis", f"person_{person_id}_gantt.png"), dpi=300)
+plt.show()
+
+
+# Visualize movement for multiple persons on one Grantt chart---------
+
+# Choose people
+person_ids = [5, 7]
+person_colors = {pid: to_hex(get_cmap("tab10")(i)) for i, pid in enumerate(person_ids)}
+
+# Prepare figure
+plt.figure(figsize=(12, 6))
+
+# All place_ids to use as y-axis
+place_rows = []
+
+for pid in person_ids:
+    person_row = input_residents_df[input_residents_df["person_id"] == pid].iloc[0]
+    schedule_id = person_row["schedule_id"]
+    person_schedule = input_schedules_df[input_schedules_df["schedule_id"] == schedule_id].copy()
+    person_schedule["place_id"] = person_schedule["place_type"].apply(lambda pt: person_row[pt])
+    
+    schedule_annotated = person_schedule.merge(input_places_df, on="place_id")
+    schedule_annotated = schedule_annotated.sort_values("start").reset_index(drop=True)
+    schedule_annotated["duration"] = schedule_annotated["start"].shift(-1) - schedule_annotated["start"]
+    schedule_annotated.loc[schedule_annotated.index[-1], "duration"] = 1440 - schedule_annotated["start"].iloc[-1]
+    
+    for _, row in schedule_annotated.iterrows():
+        place_id = row["place_id"]
+        place_name = row["name"]
+        start = row["start"]
+        duration = row["duration"]
+        place_rows.append({
+            "person_id": pid,
+            "place_label": place_name,
+            "start": start,
+            "duration": duration
+        })
+
+# Turn into DataFrame
+place_df = pd.DataFrame(place_rows)
+unique_places = place_df["place_label"].unique()
+
+# Reorder places: cells at bottom, others alphabetical above
+cell_places = sorted([p for p in unique_places if "cell" in p])
+shared_places = sorted([p for p in unique_places if "cell" not in p])
+ordered_places = shared_places + cell_places  # or flip if you want cells on top
+place_to_y = {place: i for i, place in enumerate(ordered_places)}
+
+# For staggering within a location
+row_offsets = {}
+
+for _, row in place_df.iterrows():
+    y_base = place_to_y[row["place_label"]]
+    
+    # Count how many bars are already placed at this time/place to stagger
+    key = (row["place_label"], row["start"])
+    offset = row_offsets.get(key, 0)
+    row_offsets[key] = offset + 1
+
+    y = y_base + (offset - 1) * 0.2  # subtle offset for overlapping bars
+ 
+    plt.broken_barh(
+        [(row["start"], row["duration"])],
+        (y - 0.15, 0.3),  # Use computed y for visible separation
+        facecolors=person_colors[row["person_id"]],
+        edgecolors="black",
+        alpha=0.7,
+        label=f"Person {row['person_id']}" if f"Person {row['person_id']}" not in plt.gca().get_legend_handles_labels()[1] else None
+    )
+
+# Y-axis: places
+plt.yticks(range(len(ordered_places)), ordered_places)
+
+# X-axis: time
+plt.xlim(0, 1440)
+plt.gca().xaxis.set_major_locator(MultipleLocator(120))
+plt.gca().xaxis.set_major_formatter(FuncFormatter(format_time))
+plt.xticks(rotation=45)
+
+# Final plot tweaks
+plt.xlabel("Time (HH:MM)")
+plt.ylabel("Location (place_id)")
+plt.title("Movement & Co-location by Place (Color = Person)")
+plt.grid(True, axis="x")
+plt.legend(title="Person", bbox_to_anchor=(1.01, 1), loc="upper left")
+plt.tight_layout()
+
+plt.savefig(Path("analysis", "co_location_by_place_clean.png"), dpi=300)
 plt.show()
