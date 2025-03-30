@@ -1,7 +1,7 @@
 stop.at: 2880.2
 random_seed: 42
 
-init_exposed: 4
+init_exposed: 0
 
 schedule_file: $this/../data/ng_schedules.csv
 places_file: $this/../data/ng_places.csv
