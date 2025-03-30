@@ -5,298 +5,129 @@ from matplotlib.ticker import MultipleLocator, FuncFormatter
 from matplotlib.cm import get_cmap
 from matplotlib.colors import to_hex
 
-# Load Data -------
-
-input_path = Path("data")
-
-input_residents = Path(input_path, "ng_residents.csv")
-input_residents_df = pd.read_csv(input_residents)
-#print(input_residents_df.head(), "\n")
-
-input_places = Path(input_path, "ng_places.csv")
-input_places_df = pd.read_csv(input_places)
-#print(input_places_df.head(), "\n")
-
-input_schedules = Path(input_path, "ng_schedules.csv")
-input_schedules_df = pd.read_csv(input_schedules)
-#print(input_schedules_df.head(), "\n")
-
-movement_counts_csv = Path("output", "counts_by_place_5.csv")
-movement_counts_df = pd.read_csv(movement_counts_csv)
-#print(movement_counts_df.head(), "\n")
-
-
-# Helpfer functions ---------
-# Format ticks as HH:MM
-def format_time(x, pos):
-    hours = int(x) // 60
-    minutes = int(x) % 60
-    return f"{hours:02d}:{minutes:02d}"
-
-
-# Merge places with output data ---------
-
-merged_movement_places = movement_counts_df.merge(input_places_df, 
-    on="place_id")
-print(merged_movement_places.head(), "\n")
-
-
-# Visualize movement by space ---------
-
-## gym
-
-### data
-gym_counts = merged_movement_places[merged_movement_places["type"] == "gym"]
-print(gym_counts.head())
-
-
-### plot
-plt.figure(figsize=(10, 5))
-for gym_name, group in gym_counts.groupby("name"):
-    plt.plot(group["tick"], group["person_count"], label=gym_name)
-
-hour_ticks = list(range(0, 96, 4))  
-
-hour_labels = [f"{(h % 12) or 12} {'AM' if h < 12 else 'PM'}" for h in range(24)]
-print(hour_labels)
-
-plt.xticks(hour_ticks, hour_labels, rotation=45)
-
-
-plt.xlim(0, 96)
-plt.xlabel("Time of Day")
-plt.ylabel("People in Gym")
-plt.title("Gym Occupancy – First Day Only")
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-
-#plt.show()
-plt.savefig(Path("analysis", "gym_occupancy.png"))
-
-
-## cafeteria
-### data
-cafeteria_counts = merged_movement_places[merged_movement_places["type"] == "cafeteria"]
-print(cafeteria_counts.head())
-
-### plot
-plt.figure(figsize=(10, 5))
-for cafeteria_name, group in cafeteria_counts.groupby("name"):
-    plt.plot(group["tick"], group["person_count"], label=cafeteria_name)
-
-hour_ticks = list(range(0, 96, 4))  
-
-hour_labels = [f"{(h % 12) or 12} {'AM' if h < 12 else 'PM'}" for h in range(24)]
-print(hour_labels)
-
-plt.xticks(hour_ticks, hour_labels, rotation=45)
-
-
-plt.xlim(0, 96)
-plt.xlabel("Time of Day")
-plt.ylabel("People in cafeteria")
-plt.title("cafeteria Occupancy – First Day Only")
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-
-
-plt.savefig(Path("analysis", "cafeteria_occupancy.png"))
-
-
-## yard
-### data
-yard_counts = merged_movement_places[merged_movement_places["type"] == "yard"]
-print(yard_counts.head())
-
-### plot
-plt.figure(figsize=(10, 5))
-for yard_name, group in yard_counts.groupby("name"):
-    plt.plot(group["tick"], group["person_count"], label=yard_name)
-
-hour_ticks = list(range(0, 96, 4))  
-
-hour_labels = [f"{(h % 12) or 12} {'AM' if h < 12 else 'PM'}" for h in range(24)]
-print(hour_labels)
-
-plt.xticks(hour_ticks, hour_labels, rotation=45)
-
-
-plt.xlim(0, 96)
-plt.xlabel("Time of Day")
-plt.ylabel("People in yard")
-plt.title("yard Occupancy – First Day Only")
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-
-
-plt.savefig(Path("analysis", "yard_occupancy.png"))
-
-
-
-# Visualize movement by one person ---------
-
-
-# Select person
-person_id = 5
-
-# distribution of schedules
-input_residents_df["schedule_id"].describe()
-
-# Get schedule_id and the person's place assignments
-person_row = input_residents_df.loc[input_residents_df["person_id"] == person_id].iloc[0]
-schedule_id = person_row["schedule_id"]
-
-# Get full schedule for that ID
-person_schedule = input_schedules_df[input_schedules_df["schedule_id"] == schedule_id].copy()
-
-
-# Map place_type (like "cell", "cafeteria", etc.) to the actual place_id from this person
-person_schedule["place_id"] = person_schedule["place_type"].apply(lambda pt: person_row[pt])
-
-# Merge to get place names and types (now that we have place_id)
-schedule_annotated = person_schedule.merge(input_places_df, on="place_id")
-schedule_annotated = schedule_annotated.sort_values("time").reset_index(drop=True) #ensure rows are inorder
-schedule_annotated["duration"] = schedule_annotated["start"].shift(-1) - schedule_annotated["start"] #duration computations
-schedule_annotated.loc[schedule_annotated.index[-1], "duration"] = 1440 - schedule_annotated["start"].iloc[-1] #last row
-
-print(schedule_annotated)
-print(schedule_annotated["place_type"].value_counts())
-print(schedule_annotated[["place_type", "name", "type"]])
-
-# Define y-axis code for plotting
-place_type_order = ["cell", "cafeteria", "gym", "yard", "education"]
-place_type_to_code = {ptype: i for i, ptype in enumerate(place_type_order)}
-print(place_type_to_code)
-schedule_annotated["y"] = schedule_annotated["type"].map(place_type_to_code)
-
-plt.figure(figsize=(8, 3))
-plt.plot(schedule_annotated["time"], schedule_annotated["y"], marker="o", linestyle="-")
-plt.yticks(range(len(place_type_order)), place_type_order)
-
-plt.xlabel("Time (24 hour format)")
-plt.ylabel("Location")
-plt.title(f"Movement Schedule for Person {person_id}")
-plt.grid(True)
-plt.tight_layout()
-
-plt.savefig(Path("analysis", f"person_{person_id}_movement.png"), dpi=300)
-plt.show()
-
-
-# grantt chart
-plt.figure(figsize=(10, 3))
-
-print(schedule_annotated.tail(1)[["start", "duration"]])
-
-for _, row in schedule_annotated.iterrows():
-    start = row["start"]
-    duration = row["duration"]
-    y_pos = place_type_to_code[row["type"]]
-    plt.broken_barh([(start, duration)], (y_pos - 0.4, 0.8), facecolors="tab:blue")
-
-plt.yticks(range(len(place_type_order)), place_type_order)
-
-plt.xlim(0, 1460) #limit to one day
-plt.gca().xaxis.set_major_locator(MultipleLocator(120))  # every 2 hours
-plt.gca().xaxis.set_major_formatter(FuncFormatter(format_time))
-plt.xticks(rotation=45)
-
-plt.xlabel("Time (HH:MM format)")
-plt.ylabel("Location")
-plt.title(f"Movement Schedule for Person {person_id}")
-plt.grid(True)
-plt.tight_layout()
-
-plt.savefig(Path("analysis", f"person_{person_id}_gantt.png"), dpi=300)
-plt.show()
-
-
-# Visualize movement for multiple persons on one Grantt chart---------
-
-# Choose people
-person_ids = [5, 7]
-person_colors = {pid: to_hex(get_cmap("tab10")(i)) for i, pid in enumerate(person_ids)}
-
-# Prepare figure
-plt.figure(figsize=(12, 6))
-
-# All place_ids to use as y-axis
-place_rows = []
-
-for pid in person_ids:
-    person_row = input_residents_df[input_residents_df["person_id"] == pid].iloc[0]
-    schedule_id = person_row["schedule_id"]
-    person_schedule = input_schedules_df[input_schedules_df["schedule_id"] == schedule_id].copy()
-    person_schedule["place_id"] = person_schedule["place_type"].apply(lambda pt: person_row[pt])
-    
-    schedule_annotated = person_schedule.merge(input_places_df, on="place_id")
-    schedule_annotated = schedule_annotated.sort_values("start").reset_index(drop=True)
-    schedule_annotated["duration"] = schedule_annotated["start"].shift(-1) - schedule_annotated["start"]
-    schedule_annotated.loc[schedule_annotated.index[-1], "duration"] = 1440 - schedule_annotated["start"].iloc[-1]
-    
-    for _, row in schedule_annotated.iterrows():
-        place_id = row["place_id"]
-        place_name = row["name"]
-        start = row["start"]
-        duration = row["duration"]
-        place_rows.append({
-            "person_id": pid,
-            "place_label": place_name,
-            "start": start,
-            "duration": duration
-        })
-
-# Turn into DataFrame
-place_df = pd.DataFrame(place_rows)
-unique_places = place_df["place_label"].unique()
-
-# Reorder places: cells at bottom, others alphabetical above
-cell_places = sorted([p for p in unique_places if "cell" in p])
-shared_places = sorted([p for p in unique_places if "cell" not in p])
-ordered_places = shared_places + cell_places  # or flip if you want cells on top
-place_to_y = {place: i for i, place in enumerate(ordered_places)}
-
-# For staggering within a location
-row_offsets = {}
-
-for _, row in place_df.iterrows():
-    y_base = place_to_y[row["place_label"]]
-    
-    # Count how many bars are already placed at this time/place to stagger
-    key = (row["place_label"], row["start"])
-    offset = row_offsets.get(key, 0)
-    row_offsets[key] = offset + 1
-
-    y = y_base + (offset - 1) * 0.2  # subtle offset for overlapping bars
- 
-    plt.broken_barh(
-        [(row["start"], row["duration"])],
-        (y - 0.15, 0.3),  # Use computed y for visible separation
-        facecolors=person_colors[row["person_id"]],
-        edgecolors="black",
-        alpha=0.7,
-        label=f"Person {row['person_id']}" if f"Person {row['person_id']}" not in plt.gca().get_legend_handles_labels()[1] else None
-    )
-
-# Y-axis: places
-plt.yticks(range(len(ordered_places)), ordered_places)
-
-# X-axis: time
-plt.xlim(0, 1440)
-plt.gca().xaxis.set_major_locator(MultipleLocator(120))
-plt.gca().xaxis.set_major_formatter(FuncFormatter(format_time))
-plt.xticks(rotation=45)
-
-# Final plot tweaks
-plt.xlabel("Time (HH:MM)")
-plt.ylabel("Location (place_id)")
-plt.title("Movement & Co-location by Place (Color = Person)")
-plt.grid(True, axis="x")
-plt.legend(title="Person", bbox_to_anchor=(1.01, 1), loc="upper left")
-plt.tight_layout()
-
-plt.savefig(Path("analysis", "co_location_by_place_clean.png"), dpi=300)
-plt.show()
+class MovementVisualizer:
+    def __init__(self, input_dir="data", output_dir="analysis"):
+        self.input_dir = Path(input_dir)
+        self.output_dir = Path(output_dir)
+        self.load_data()
+        self.hour_ticks = list(range(0, 96, 4))
+        self.hour_labels = [f"{(h % 12) or 12} {'AM' if h < 12 else 'PM'}" for h in range(24)]
+
+    def load_data(self):
+        self.residents_df = pd.read_csv(self.input_dir / "ng_residents.csv")
+        self.places_df = pd.read_csv(self.input_dir / "ng_places.csv")
+        self.schedules_df = pd.read_csv(self.input_dir / "ng_schedules.csv")
+        self.movement_df = pd.read_csv(Path("output") / "counts_by_place_5.csv")
+        self.merged_movement = self.movement_df.merge(self.places_df, on="place_id")
+
+    def format_time(self, x, pos):
+        return f"{int(x) // 60:02d}:{int(x) % 60:02d}"
+
+    def plot_occupancy(self, place_type):
+        df = self.merged_movement[self.merged_movement["type"] == place_type]
+        plt.figure(figsize=(10, 5))
+        for name, group in df.groupby("name"):
+            plt.plot(group["tick"], group["person_count"], label=name)
+
+        plt.xticks(self.hour_ticks, self.hour_labels, rotation=45)
+        plt.xlim(0, 96)
+        plt.xlabel("Time of Day")
+        plt.ylabel(f"People in {place_type}")
+        plt.title(f"{place_type.title()} Occupancy – First Day Only")
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(self.output_dir / f"{place_type}_occupancy.png")
+        plt.close()
+
+    def plot_gantt_for_persons(self, person_ids):
+        person_colors = {pid: to_hex(get_cmap("tab10")(i)) for i, pid in enumerate(person_ids)}
+        place_rows = []
+
+        for pid in person_ids:
+            row = self.residents_df[self.residents_df["person_id"] == pid].iloc[0]
+            schedule_id = row["schedule_id"]
+            sched = self.schedules_df[self.schedules_df["schedule_id"] == schedule_id].copy()
+            sched["place_id"] = sched["place_type"].apply(lambda pt: row[pt])
+            sched = sched.merge(self.places_df, on="place_id").sort_values("start")
+            sched["duration"] = sched["start"].shift(-1) - sched["start"]
+            sched.loc[sched.index[-1], "duration"] = 1440 - sched["start"].iloc[-1]
+
+            for _, r in sched.iterrows():
+                place_rows.append({
+                    "person_id": pid,
+                    "place_label": r["name"],
+                    "start": r["start"],
+                    "duration": r["duration"]
+                })
+
+        df = pd.DataFrame(place_rows)
+        unique_places = sorted(df["place_label"].unique(), key=lambda x: ("cell" not in x, x))
+        place_to_y = {place: i for i, place in enumerate(unique_places)}
+
+        row_offsets = {}
+        plt.figure(figsize=(12, 6))
+        for _, row in df.iterrows():
+            y_base = place_to_y[row["place_label"]]
+            key = (row["place_label"], row["start"])
+            offset = row_offsets.get(key, 0)
+            row_offsets[key] = offset + 1
+            y = y_base + (offset - 1) * 0.2
+
+            label = f"Person {row['person_id']}"
+            if label not in plt.gca().get_legend_handles_labels()[1]:
+                plt.broken_barh(
+                    [(row["start"], row["duration"])],
+                    (y - 0.15, 0.3),
+                    facecolors=person_colors[row["person_id"]],
+                    edgecolors="black",
+                    alpha=0.7,
+                    label=label
+                )
+            else:
+                plt.broken_barh(
+                    [(row["start"], row["duration"])],
+                    (y - 0.15, 0.3),
+                    facecolors=person_colors[row["person_id"]],
+                    edgecolors="black",
+                    alpha=0.7
+                )
+
+        plt.yticks(range(len(unique_places)), unique_places)
+        plt.gca().xaxis.set_major_locator(MultipleLocator(120))
+        plt.gca().xaxis.set_major_formatter(FuncFormatter(self.format_time))
+        plt.xticks(rotation=45)
+        plt.xlim(0, 1440)
+        plt.xlabel("Time (HH:MM)")
+        plt.ylabel("Location")
+        title = "Movement Schedule"
+        if len(person_ids) == 1:
+            title += f" for Person {person_ids[0]}"
+        else:
+            title += " – Multiple Persons"
+        plt.title(title)
+        plt.grid(True, axis="x")
+        plt.legend(title="Person", bbox_to_anchor=(1.01, 1), loc="upper left")
+        plt.tight_layout()
+
+        filename = (
+            f"person_{person_ids[0]}_gantt.png"
+            if len(person_ids) == 1
+            else "multi_person_gantt.png"
+        )
+        plt.savefig(self.output_dir / filename, dpi=300)
+        plt.close()
+
+if __name__ == "__main__":
+    viz = MovementVisualizer()
+
+    # Occupancy plots
+    viz.plot_occupancy("gym")
+    viz.plot_occupancy("cafeteria")
+    viz.plot_occupancy("yard")
+
+    # Gantt chart: single person
+    viz.plot_gantt_for_persons([5])
+
+    # Gantt chart: multiple people
+    viz.plot_gantt_for_persons([5, 7])
