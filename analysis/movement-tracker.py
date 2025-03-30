@@ -1,5 +1,3 @@
-# interpreter at /users/akhann16/sfw/pyenvs/radmodel-py3.11/bin/python
-
 from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd 
