@@ -47,5 +47,17 @@ tests/test_core.py ...                                                          
 =================================== 3 passed in 0.06s ====================================
 ```
 
+## VSCODE Set up
+To use the correct Python environment in VS Code, select the following as your Python interpreter:
+
+```
+/oscar/home/akhann16/code/radmodel/launch_radmodel.sh
+```
+
+
+This wrapper script sources the project’s `settings.sh`, which sets `LD_LIBRARY_PATH` and activates the environment.
+
+
+
 ## Funding Information
 [R21 MD 019388](https://reporter.nih.gov/search/3xP1HNXGDkKYlxiG9LbyJA/project-details/10933019)  
