@@ -25,20 +25,26 @@ class MovementVisualizer:
 
     def plot_occupancy(self, place_type):
         df = self.merged_movement[self.merged_movement["type"] == place_type]
+        
+        if df["name"].nunique() > 1:
+            raise ValueError("This version of plot_occupancy expects only one room.")
+
         plt.figure(figsize=(10, 5))
-        for name, group in df.groupby("name"):
-            plt.plot(group["tick"], group["person_count"], label=name)
+        room_name = df["name"].unique()[0]
+        
+        # Simple bar plot: x = tick, y = person_count
+        plt.bar(df["tick"], df["person_count"], width=1, align="edge", color="tab:blue")
 
         plt.xticks(self.hour_ticks, self.hour_labels, rotation=45)
         plt.xlim(0, 96)
         plt.xlabel("Time of Day")
-        plt.ylabel(f"People in {place_type}")
-        plt.title(f"{place_type.title()} Occupancy – First Day Only")
-        plt.legend()
-        plt.grid(True)
+        plt.ylabel("Number of People")
+        plt.title(f"{room_name.title()} Occupancy – First Day Only")
+        plt.grid(True, axis="y")
         plt.tight_layout()
         plt.savefig(self.output_dir / f"{place_type}_occupancy.png")
         plt.close()
+
 
     def plot_gantt_for_persons(self, person_ids):
         person_colors = {pid: to_hex(get_cmap("tab10")(i)) for i, pid in enumerate(person_ids)}
