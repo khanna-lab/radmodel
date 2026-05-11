@@ -85,6 +85,45 @@ tests/test_core.py .................                                     [100%]
 ============================== 17 passed in 5.28s ==============================
 ```
 
+## Output directory
+
+Each run writes `counts.csv` and `counts_by_place.csv` to a directory
+controlled by the `output_dir` param in `params/radmodel_params.yaml`. The
+counts paths use a `$outdir` token that expands to whatever `output_dir` is
+set to (default: `output/default`). The directory is created on demand.
+
+To send a one-off run to its own directory, override on the command line:
+
+```bash
+radmodel params/radmodel_params.yaml '{"output_dir": "output/exp_baseline"}'
+```
+
+## Submitting a Slurm job
+
+`submit_radmodel.sh` wraps the above for batch submission:
+
+```bash
+sbatch submit_radmodel.sh                              # uses params/radmodel_params.yaml
+sbatch submit_radmodel.sh params/some_other.yaml       # different params file
+```
+
+The script automatically scopes each job's output to `output/run_<SLURM_JOB_ID>/`
+(or `output/run_local_<timestamp>/` if invoked outside Slurm), so concurrent
+runs and successive experiments don't overwrite each other. Job stdout/stderr
+go to `logs/radmodel_<jobid>.{out,err}`. Defaults: 1 node, 1 task, 8 GB, 2 h
+on the `batch` partition — tune `--mem`, `--time`, and `--ntasks` in the
+`#SBATCH` headers as needed.
+
+Monitor and inspect:
+
+```bash
+squeue -u $USER                                 # job status
+tail -f logs/radmodel_<jobid>.out               # live output
+sacct -u $USER --starttime today \
+      --format=JobID,JobName,State,Elapsed,ExitCode    # past jobs
+seff <jobid>                                    # post-run RAM/CPU efficiency
+```
+
 ## VSCODE Set up
 To use the correct Python environment in VS Code, select the following as your Python interpreter:
 
