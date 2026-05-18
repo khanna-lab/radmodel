@@ -1,9 +1,12 @@
 from pathlib import Path
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd 
 from matplotlib.ticker import MultipleLocator, FuncFormatter
 from matplotlib.cm import get_cmap
-from matplotlib.colors import to_hex
+from matplotlib.colors import to_hex, ListedColormap, BoundaryNorm
+from matplotlib.patches import Patch
+
 
 class MovementVisualizer:
     def __init__(self, input_dir="data", output_dir="analysis"):
@@ -124,6 +127,100 @@ class MovementVisualizer:
         plt.savefig(self.output_dir / filename, dpi=300)
         plt.close()
 
+    def plot_movement_heatmap(self, person_ids, bin_minutes=15):
+        """
+        Heatmap of where each person is over the day.
+        Rows = people, columns = time bins, color = place.
+        """
+        # Build the same per-person schedule as in plot_gantt_for_persons
+        place_rows = []
+        for pid in person_ids:
+            row = self.residents_df[self.residents_df["person_id"] == pid].iloc[0]
+            schedule_id = row["schedule_id"]
+            sched = self.schedules_df[self.schedules_df["schedule_id"] == schedule_id].copy()
+            sched["place_id"] = sched["place_type"].apply(lambda pt: row[pt])
+            sched = sched.merge(self.places_df, on="place_id").sort_values("start")
+            sched["duration"] = sched["start"].shift(-1) - sched["start"]
+            sched.loc[sched.index[-1], "duration"] = 1440 - sched["start"].iloc[-1]
+
+            for _, r in sched.iterrows():
+                place_rows.append({
+                    "person_id": pid,
+                    "place_label": r["name"],
+                    "start": r["start"],
+                    "duration": r["duration"]
+                })
+
+        df = pd.DataFrame(place_rows)
+
+        # Order persons and places in a stable way
+        person_ids = list(person_ids)
+        person_to_row = {pid: i for i, pid in enumerate(person_ids)}
+
+        unique_places = sorted(df["place_label"].unique(), key=lambda x: ("cell" not in x, x))
+        place_to_idx = {place: i for i, place in enumerate(unique_places)}
+
+        # Time discretization
+        n_bins = 1440 // bin_minutes
+        mat = np.full((len(person_ids), n_bins), fill_value=-1, dtype=int)
+
+        for _, r in df.iterrows():
+            pid = r["person_id"]
+            if pid not in person_to_row:
+                continue
+            row_idx = person_to_row[pid]
+            place_idx = place_to_idx[r["place_label"]]
+
+            start_min = int(r["start"])
+            end_min = int(r["start"] + r["duration"])
+            start_bin = start_min // bin_minutes
+            end_bin = min(n_bins, (end_min + bin_minutes - 1) // bin_minutes)
+
+            if start_bin < end_bin:
+                mat[row_idx, start_bin:end_bin] = place_idx
+
+        # Mask "no data" entries
+        mat_masked = np.ma.masked_where(mat < 0, mat)
+
+        # Categorical colormap for places
+        colors = [get_cmap("tab20")(i % 20) for i in range(len(unique_places))]
+        cmap = ListedColormap(colors)
+        bounds = np.arange(len(unique_places) + 1) - 0.5
+        norm = BoundaryNorm(bounds, cmap.N)
+
+        fig, ax = plt.subplots(figsize=(12, max(4, len(person_ids) * 0.25)))
+        im = ax.imshow(mat_masked, aspect="auto", cmap=cmap, norm=norm)
+
+        # Y axis: people
+        ax.set_yticks(range(len(person_ids)))
+        ax.set_yticklabels([f"P{pid}" for pid in person_ids])
+
+        # X axis: time of day in hours
+        bins_per_hour = 60 // bin_minutes
+        x_ticks = np.arange(0, n_bins + 1, bins_per_hour * 2)  # every 2 hours
+        x_labels = []
+        for b in x_ticks:
+            minutes = b * bin_minutes
+            hour = minutes // 60
+            x_labels.append(f"{hour:02d}:00")
+        ax.set_xticks(x_ticks)
+        ax.set_xticklabels(x_labels, rotation=45, ha="right")
+
+        ax.set_xlabel("Time of Day")
+        ax.set_ylabel("Person")
+
+        ax.set_title("Daily Movement Heatmap")
+
+        # Legend for places
+        legend_handles = [Patch(color=colors[i], label=unique_places[i]) for i in range(len(unique_places))]
+        ax.legend(handles=legend_handles, title="Location", bbox_to_anchor=(1.01, 1), loc="upper left")
+
+        plt.tight_layout()
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        plt.savefig(self.output_dir / "movement_heatmap.png", dpi=300)
+        plt.close()
+
+
 if __name__ == "__main__":
     viz = MovementVisualizer()
 
@@ -137,3 +234,6 @@ if __name__ == "__main__":
 
     # Gantt chart: multiple people
     viz.plot_gantt_for_persons([5, 7])
+
+    sample_ids = viz.residents_df["person_id"].head(30).tolist()
+    viz.plot_movement_heatmap(sample_ids, bin_minutes=15)
