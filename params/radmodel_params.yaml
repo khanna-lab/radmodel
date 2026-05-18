@@ -7,8 +7,9 @@ schedule_file: $this/../data/ng_schedules.csv
 places_file: $this/../data/ng_places.csv
 residents_file: $this/../data/ng_residents.csv
 
-counts_log_file: output/counts.csv
-places_log_file: output/counts_by_place.csv
+output_dir: output/default
+counts_log_file: $outdir/counts.csv
+places_log_file: $outdir/counts_by_place.csv
 
 stoe: 0.9
 

@@ -30,10 +30,15 @@ def main():
     args = parser.parse_args()
     params = init_params(args.parameters_file, args.parameters)
     params_dir = os.path.dirname(args.parameters_file)
+    out_dir = params.get("output_dir", "output")
     for k, v in params.items():
-        if isinstance(v, str) and "$this" in v:
-            v = v.replace("$this", params_dir)
+        if isinstance(v, str):
+            if "$this" in v:
+                v = v.replace("$this", params_dir)
+            if "$outdir" in v:
+                v = v.replace("$outdir", out_dir)
             params[k] = v
+    os.makedirs(out_dir, exist_ok=True)
     run(params, MPI.COMM_WORLD)
 
 
