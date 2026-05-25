@@ -53,7 +53,7 @@ def _init_data():
     return schedule_data, risks, places, residents, params
 
 
-def test_create_schedule():
+def test_create_schedule(show_data):
     fname = "./test_data/ng_schedules.csv"
     id_map, schedules, risks = population.create_schedules(fname)
     assert 1 == len(id_map)
@@ -63,6 +63,17 @@ def test_create_schedule():
     assert ((common.TICKS_PER_DAY * len(id_map),)) == risks.shape
 
     s_exp, risks_exp = _create_s1_expected()
+
+    if show_data:
+        idx_to_name = {v: k for k, v in population.SCHEDULE_PLACE_TYPE_MAP.items()}
+        print(f"\n{'tick':>4}  {'actual':>8}  {'expected':>8}  {'risk_act':>8}  {'risk_exp':>8}")
+        print("-" * 46)
+        for i in range(len(schedules)):
+            act = idx_to_name.get(schedules[i], str(schedules[i]))
+            exp = idx_to_name.get(s_exp[i], str(s_exp[i]))
+            marker = " <-- MISMATCH" if schedules[i] != s_exp[i] or risks[i] != risks_exp[i] else ""
+            print(f"{i:4d}  {act:>8}  {exp:>8}  {risks[i]:>8.1f}  {risks_exp[i]:>8.1f}{marker}")
+
     assert np.array_equal(schedules, s_exp)
     assert np.array_equal(risks, risks_exp)
 
