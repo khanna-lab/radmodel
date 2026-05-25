@@ -85,7 +85,7 @@ tests/test_core.py .................                                     [100%]
 ============================== 17 passed in 5.28s ==============================
 ```
 
-Running specific tests:
+4. Running specific tests:
 
 ```
 pytest tests/test_core.py::test_create_schedule
@@ -96,6 +96,30 @@ Or to run a few related ones with -k keyword matching:
 ```
 pytest tests/test_core.py -k "select_next_place"
 ```
+
+To print names of tests, do:
+
+```
+(radmodel-py3.11) [akhann16@node2335 radmodel]$ pytest tests/test_core.py -k "create" -v
+========================================================== test session starts ===========================================================
+platform linux -- Python 3.11.11, pytest-8.3.2, pluggy-1.5.0 -- /oscar/data/akhann16/sfw/pyenvs/radmodel-py3.11/bin/python3
+cachedir: .pytest_cache
+rootdir: /oscar/home/akhann16/code/radmodel
+configfile: pyproject.toml
+plugins: anyio-4.9.0
+collected 17 items / 14 deselected / 3 selected                                                                                          
+
+tests/test_core.py::test_create_schedule PASSED                                                                                    [ 33%]
+tests/test_core.py::test_create_places PASSED                                                                                      [ 66%]
+tests/test_core.py::test_create_residents PASSED    
+```
+
+To print output from individual tests, do:
+
+```
+pytest tests/test_core.py::test_create_schedule -v -s
+```
+
 
 ## Output directory
 
