@@ -1,14 +1,4 @@
 #!/bin/bash
-#SBATCH --job-name=radmodel
-#SBATCH --output=logs/radmodel_%j.out
-#SBATCH --error=logs/radmodel_%j.err
-#SBATCH --partition=batch
-#SBATCH --time=02:00:00
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem=8G
-
 set -euo pipefail
 walltime=02:00:00
 memory=8G
@@ -18,7 +8,7 @@ date=${date+%Y-%m-%d-T%H-%M-%S}
 params="./params/radmodel_params.yaml"
 
 usage() {
-  echo "usage: $0 [-p Parameter file] [-m memory] [-j jobname] [-T walltime] [-n nodes] [-o outfile]
+  echo "usage: $0 [-p parameter file] [-m memory] [-j jobname] [-T walltime] [-n nodes]
 
   Submit the batch script for radmodel. Uses default params from './params/radmode_params.yaml' if unspecified.
   "
