@@ -4,9 +4,9 @@ walltime=02:00:00
 memory=8G
 jobname=""
 num_cores=1
-date=${date+%Y-%m-%d-T%H-%M-%S}
+date=$(date +%Y-%m-%d-T%H-%M-%S)
 params="./params/radmodel_params.yaml"
-
+echo $date
 usage() {
   echo "usage: $0 [-p parameter file] [-m memory] [-j jobname] [-T walltime] [-n nodes]
 
@@ -30,6 +30,8 @@ done
 
 if [[ $jobname == "" ]]; then
   jobname="Analysis_$date"
+  echo $jobname >&2
+  echo $date >&2
 fi
 
 if [[ $params == "" ]]; then

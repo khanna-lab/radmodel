@@ -15,7 +15,6 @@ paramPath="$1"
 shift
 
 processes=1
-# date=${date +%Y-%m-%d-T%H-%M-%S}
 usage() {
   echo "usage: $0 {Parameter file} [-m memory] [-j jobname] [-T walltime] [-n nodes] [-o outfile]"
 }
@@ -24,6 +23,7 @@ while getopts m:j:T:n:o: option; do
   case "${option}" in
 
   n) processes=${OPTARG} ;;
+  o) outfile=${OPTARG} ;;
   *)
     usage >&2
     exit 1

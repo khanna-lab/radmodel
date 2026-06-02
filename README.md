@@ -100,7 +100,7 @@ radmodel params/radmodel_params.yaml '{"output_dir": "output/exp_baseline"}'
 
 ## Submitting a Slurm job
 
-`submit_radmodel.sh` wraps the above for batch submission:
+`submit_radmodel.sh` wraps the above for batch submission. Virtual environment must be activated before running
 
 ```console
 usage: ./submit_radmodel [-p params] [-m memory] [-j jobname] [-T walltime] [-n nodes]
