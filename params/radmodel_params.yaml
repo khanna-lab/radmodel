@@ -7,7 +7,7 @@ schedule_file: $this/../data/ng_schedules.csv
 places_file: $this/../data/ng_places.csv
 residents_file: $this/../data/ng_residents.csv
 
-output_dir: output/default
+output_dir: '$HOME/scratch/radmodel/$JOBNAME/output'
 counts_log_file: $outdir/counts.csv
 places_log_file: $outdir/counts_by_place.csv
 
