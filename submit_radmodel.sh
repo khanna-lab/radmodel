@@ -10,23 +10,53 @@
 #SBATCH --mem=8G
 
 set -euo pipefail
+walltime=02:00:00
+memory=8G
+jobname=""
+num_cores=1
+date=${date+%Y-%m-%d-T%H-%M-%S}
+params="./params/radmodel_params.yaml"
 
-REPO="/oscar/home/akhann16/code/radmodel"
-PARAMS="${1:-$REPO/params/radmodel_params.yaml}"
+usage() {
+  echo "usage: $0 [-p Parameter file] [-m memory] [-j jobname] [-T walltime] [-n nodes] [-o outfile]
 
-cd "$REPO"
-mkdir -p logs
+  Submit the batch script for radmodel. Uses default params from './params/radmode_params.yaml' if unspecified.
+  "
+}
+# read params and sbatch opts
+while getopts m:j:T:p:n:c: option; do
+  case "${option}" in
+  p) params=${OPTARG} ;;
+  m) memory=${OPTARG} ;;
+  j) jobname=${OPTARG} ;;
+  T) walltime=${OPTARG} ;;
+  c) num_cores=${OPTARG}  ;;
+  *)
+    usage >&2
+    exit 1
+    ;;
+  esac
+done
 
-source settings.sh
+if [[ $jobname == "" ]]; then
+  jobname="Analysis_$date"
+fi
 
-RUN_ID="${SLURM_JOB_ID:-local_$(date +%Y%m%dT%H%M%S)}"
-OUT_DIR="output/run_${RUN_ID}"
+if [[ $params == "" ]]; then
+  params="./params/radmodel_params.yaml"
+  echo "Using default params"
+fi
 
-echo "Host: $(hostname)"
-echo "Job: ${SLURM_JOB_ID:-<none>}  Params: $PARAMS"
-echo "Output dir: $OUT_DIR"
-echo "Started: $(date -Is)"
+outPath="$HOME/scratch/radmodel"
 
-mpirun -n "$SLURM_NTASKS" radmodel "$PARAMS" "{\"output_dir\": \"$OUT_DIR\"}"
+prepSubmit() {
+  mkdir -p "$finalPath"
+  echo -e "\t$finalPath"
+  sbatch --output="$finalPath"/slurm.out --error="$finalPath"/slurm.err -J "$jobname" -t "$walltime" --mem="$memory" -c "$num_cores" ./batch.sh "$params" -o "$finalPath"/results
+}
 
-echo "Finished: $(date -Is)"
+echo -e "\tMaking directory in scratch"
+mkdir -p "$outPath"
+echo -e "\t $outPath"
+finalPath=$outPath"/"$jobname
+prepSubmit
