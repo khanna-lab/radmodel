@@ -142,3 +142,98 @@ def generate_cells(num_cells: int, output_file: str | os.PathLike):
         writer.writerow(["place_id", "name", "type"])
         for i in range(num_cells):
             writer.writerow([i, f"cell_{i}", "cell"])
+
+
+def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathLike):
+    with open(mod_def_file) as fin:
+        data = yaml.safe_load(fin)
+
+    module = data.get("facility") 
+    module_name = module["name"]
+    module_letters = module["modules"]["letters"]
+    tiers = module["tiers"]
+    gp_cells = module["gp_cells"]
+    special_cells = module["special_cells"]
+    subplaces = module["subplaces"]["per_module"]
+    shared_places = module["shared_places"]
+
+    cell_id = module["place_ids"]["cell_id_start"]
+    subplace_id = module["place_ids"]["subplace_id_start"]
+    shared_id = module["place_ids"]["shared_id_start"]
+
+    facility_id = max(shared_id + len(shared_places), subplace_id + len(subplaces) * len(module_letters))
+    module_id_start = facility_id + 1
+
+    module_parent_by_letter = {
+        letter: module_id_start + i for i, letter in enumerate(module_letters)
+    }
+
+    rows = [{"place_id": facility_id, "name": module_name, "type": "facility", "parent_id": ""}]
+    for letter in module_letters:
+        rows.append({
+            "place_id": module_parent_by_letter[letter],
+            "name": f"module_{letter}",
+            "type": "module",
+            "parent_id": facility_id,
+        })
+
+    special_parent_ids: Dict[str, int] = {}
+
+    for place in shared_places:
+        rows.append({
+            "place_id": shared_id,
+            "name": place["name"],
+            "type": place["place_type"],
+            "parent_id": facility_id,
+        })
+        special_parent_ids[place["place_type"]] = shared_id
+        shared_id += 1
+
+    for letter in module_letters:
+        parent_id = module_parent_by_letter[letter]
+        for tier in tiers:
+            tier_name = tier["name"]
+            cells_per_tier = tier["cells_per_tier"]
+            for n in range(1, cells_per_tier + 1):
+                rows.append({
+                    "place_id": cell_id,
+                    "name": f"cell_{letter}_{tier_name}_{n}",
+                    "type": gp_cells["housing_category"].lower(),
+                    "parent_id": parent_id,
+                })
+                cell_id += 1
+
+    for special in special_cells:
+        housing_category = special["housing_category"]
+        place_type = housing_category.lower()
+        if housing_category == "RH":
+            parent_id = special_parent_ids.get("segregation", facility_id)
+        elif housing_category == "MI":
+            parent_id = special_parent_ids.get("medical", facility_id)
+        else:
+            parent_id = facility_id
+
+        for i in range(1, special["count"] + 1):
+            rows.append({
+                "place_id": cell_id,
+                "name": f"{special['name_prefix']}_{i}",
+                "type": place_type,
+                "parent_id": parent_id,
+            })
+            cell_id += 1
+
+    for letter in module_letters:
+        parent_id = module_parent_by_letter[letter]
+        for subplace in subplaces:
+            rows.append({
+                "place_id": subplace_id,
+                "name": subplace["name_template"].format(module_letter=letter),
+                "type": subplace["place_type"],
+                "parent_id": parent_id,
+            })
+            subplace_id += 1
+
+    with open(output_file, "w") as fout:
+        writer = csv.DictWriter(fout, fieldnames=["place_id", "name", "type", "parent_id"])
+        writer.writeheader()
+        writer.writerows(rows)

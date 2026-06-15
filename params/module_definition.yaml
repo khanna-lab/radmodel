@@ -1,0 +1,99 @@
+facility:
+  name: "Moran Medium Security"
+  spec: "references/specs/structural-layout-v1.md"
+
+  residents:
+    count: 1200
+
+  modules:
+    count: 10
+    letters: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
+
+  tiers:
+    - name: bottom
+      cells_per_tier: 29
+    - name: top
+      cells_per_tier: 29
+
+  gp_cells:
+    housing_category: GP
+    default_bunk_capacity: 2
+    overflow:
+      enabled: true
+      overflow_bunk_capacity: 3
+
+  special_cells:
+    - housing_category: RH
+      name_prefix: "seg_cell"
+      count: 30
+      bunk_capacity: 1
+
+    - housing_category: MI
+      name_prefix: "mi_cell"
+      count: 20
+      bunk_capacity: 1
+
+  place_ids:
+    cell_id_start: 0
+    subplace_id_start: 1000
+    shared_id_start: 2000
+
+  subplaces:
+    per_module:
+      - place_type: dayroom
+        name_template: "dayroom_{module_letter}"
+        capacity: null
+
+      - place_type: shower
+        name_template: "shower_{module_letter}"
+        capacity: null
+
+  shared_places:
+    - name: dining_room_1
+      place_type: dining_room
+      capacity: null
+
+    - name: dining_room_2
+      place_type: dining_room
+      capacity: null
+
+    - name: gym
+      place_type: gym
+      capacity: null
+
+    - name: yard
+      place_type: yard
+      capacity: null
+
+    - name: education_building
+      place_type: education
+      capacity: null
+
+    - name: industries_building
+      place_type: industry
+      capacity: null
+
+    - name: visiting_room
+      place_type: visit_room
+      capacity: null
+
+    - name: medical
+      place_type: medical
+      capacity: null
+
+    - name: chapel
+      place_type: chapel
+      capacity: null
+
+    - name: barber
+      place_type: barber
+      capacity: null
+
+    - name: segregation_unit
+      place_type: segregation
+      capacity: null
+
+  bunk_positions:
+    - bottom
+    - top
+    - third

@@ -82,3 +82,26 @@ def create_persons(num_persons: int, places_file, module_definition_file, output
 )
 def create_schedules(num_schedules: int, output_file):
     generate.generate_schedules(num_schedules, output_file)
+
+
+@cli.command("create_places")
+@click.option(
+    "-m",
+    "--module-definition-file",
+    type=click.Path(),
+    help="Path to the module definition file used to generate hierarchical places",
+    required=True
+)
+@click.option(
+    "-o",
+    "--output_file",
+    type=click.Path(),
+    help="Path to write the generated places to",
+    required=True
+)
+def create_places(module_definition_file, output_file):
+    generate.generate_places(module_definition_file, output_file)
+
+
+if __name__ == "__main__":
+    cli()
