@@ -9,7 +9,9 @@ authors = [
 ]
 dependencies = [
     "repast4py",
-    "pytest"
+    "pytest",
+    "click",
+    "pyyaml"
 ]
 
 [project.optional-dependencies]
