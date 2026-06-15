@@ -1,8 +1,17 @@
-stop.at: 10
-
+stop.at: 2880.2
 random_seed: 42
 
-stoe: 0.1
+init_exposed: 0
+
+schedule_file: $this/../data/ng_schedules.csv
+places_file: $this/../data/ng_places.csv
+residents_file: $this/../data/ng_residents.csv
+
+output_dir: '$HOME/scratch/radmodel/$JOBNAME/output'
+counts_log_file: $outdir/counts.csv
+places_log_file: $outdir/counts_by_place.csv
+
+stoe: 0.9
 
 transition_matrix:
   E:
