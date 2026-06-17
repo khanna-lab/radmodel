@@ -16,6 +16,7 @@ class Agent:
     person_id: int
     module_id: int
     cell_id: int
+    cell_place_id: int
 
 
 @dataclass
@@ -51,16 +52,8 @@ class Module:
 
 
 @dataclass
-class CellAssignment:
-    person_id: int
-    cell_place_id: int
-    bunk_position: str  # "bottom", "top", "third"
-
-
-@dataclass
 class Layout:
     modules: Dict[str, Module] = field(default_factory=Dict)
-    cell_assignments: List[CellAssignment] = field(default_factory=list)
 
     def add_module(self, module):
         self.modules.update(module)
@@ -112,18 +105,6 @@ def load_cells(path, modules):
                 )
 
 
-def load_cell_assignments(path: str | os.PathLike) -> List[CellAssignment]:
-    with open(path) as f:
-        return [
-            CellAssignment(
-                person_id=int(r["person_id"]),
-                cell_place_id=int(r["cell_place_id"]),
-                bunk_position=r["bunk_position"],
-            )
-            for r in csv.DictReader(f)
-        ]
-
-
 def load_layout(data_dir: str | os.PathLike) -> Layout:
     """Load all four structural CSVs from a directory."""
     modules = load_modules(os.path.join(data_dir, "ng_modules.csv"))
@@ -131,8 +112,4 @@ def load_layout(data_dir: str | os.PathLike) -> Layout:
     load_cells(os.path.join(data_dir, "ng_cells.csv"), modules)
     return Layout(
         modules=modules,
-        cell_assignments=load_cell_assignments(
-            os.path.join(data_dir, "ng_cell_assignments.csv")
-        ),
     )
-
