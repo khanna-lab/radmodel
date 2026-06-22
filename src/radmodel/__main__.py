@@ -37,6 +37,10 @@ def main():
                 v = v.replace("$this", params_dir)
             if "$outdir" in v:
                 v = v.replace("$outdir", out_dir)
+            if "$HOME" in v:
+                v = v.replace("$HOME", os.getenv("HOME"))
+            if "$JOBNAME" in v:
+                v = v.replace("$JOBNAME", os.getenv("SLURM_JOB_NAME"))
             params[k] = v
     os.makedirs(out_dir, exist_ok=True)
     run(params, MPI.COMM_WORLD)
