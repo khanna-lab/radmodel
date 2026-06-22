@@ -7,7 +7,6 @@ facility:
 
   modules:
     count: 10
-    letters: ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
 
   tiers:
     - name: bottom
@@ -15,23 +14,22 @@ facility:
     - name: top
       cells_per_tier: 29
 
-  gp_cells:
-    housing_category: GP
-    default_bunk_capacity: 2
-    overflow:
-      enabled: true
-      overflow_bunk_capacity: 3
-
-  special_cells:
-    - housing_category: RH
-      name_prefix: "seg_cell"
-      count: 30
-      bunk_capacity: 1
-
-    - housing_category: MI
-      name_prefix: "mi_cell"
-      count: 20
-      bunk_capacity: 1
+  cells:
+    gp:
+      housing_category: GP
+      default_bunk_capacity: 2
+      overflow:
+        enabled: true
+        overflow_bunk_capacity: 3
+    special:
+      - housing_category: RH
+        name_prefix: "seg_cell"
+        count: 30
+        bunk_capacity: 1
+      - housing_category: MI
+        name_prefix: "mi_cell"
+        count: 20
+        bunk_capacity: 1
 
   place_ids:
     cell_id_start: 0
@@ -39,14 +37,13 @@ facility:
     shared_id_start: 2000
 
   subplaces:
-    per_module:
-      - place_type: dayroom
-        name_template: "dayroom_{module_letter}"
-        capacity: null
+    - place_type: dayroom
+      name_template: "dayroom_{module_letter}"
+      capacity: null
 
-      - place_type: shower
-        name_template: "shower_{module_letter}"
-        capacity: null
+    - place_type: shower
+      name_template: "shower_{module_letter}"
+      capacity: null
 
   shared_places:
     - name: dining_room_1
