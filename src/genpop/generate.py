@@ -216,7 +216,6 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
         place_type = housing_category.lower()
         if housing_category == "RH":
             parent_id = special_parent_ids.get("segregation", facility_id)
-            print(special_parent_ids)
         elif housing_category == "MI":
             parent_id = special_parent_ids.get("medical", facility_id)
         else:

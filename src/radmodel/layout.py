@@ -80,10 +80,8 @@ class Layout:
     def load_places(self, path: str | os.PathLike):
         with open(os.path.join(path, "ng_places.csv")) as f:
             for r in csv.DictReader(f):
-                # if r["type"] == "facility":
-                #     self.add_module(Module(module_id=int(r["place_id"]), letter="Z"))
                 if r["type"] == "module":
-                    letter = string.ascii_lowercase[int(r["place_id"]) - 2012]
+                    letter = string.ascii_uppercase[int(r["place_id"]) - 2012]
                     self.add_module(Module(module_id=int(r["place_id"]), letter=letter))
                 elif r["type"] == "cell":
                     if r["subtype"] == "gp":
@@ -99,7 +97,6 @@ class Layout:
                             )
                         )
                     else:
-                        print(self.shared_modules)
                         self.shared_modules[r["parent_id"]].add_cell(
                             Cell(
                                 place_id=int(r["place_id"]),
@@ -113,7 +110,7 @@ class Layout:
                         )
 
                 else:
-                    if r["subtype"] in "segregation" or "medical":
+                    if r["subtype"] in ["segregation", "medical"]:
                         self.add_shared_module(SharedModule(module_id=r["place_id"]))
                     else:
                         self.add_shared_place(
