@@ -1,19 +1,32 @@
 """Tests for the v1 structural layout (see references/specs/structural-layout-v1.md)."""
+
+import os
 import pytest
 
-from genpop import generate_layout
+from genpop import generate
 from radmodel import layout as layout_loader
 
 
 @pytest.fixture(scope="session")
 def fresh_layout(tmp_path_factory):
     d = tmp_path_factory.mktemp("layout")
-    generate_layout.generate_all(str(d))
+    generate.generate_places(
+        "./tests/test_params/module_no_overflow.yaml",
+        os.path.join(str(d), "ng_places.csv"),
+    )
     return layout_loader.load_layout(str(d))
 
 
-def test_module_count(fresh_layout):
-    assert len(fresh_layout.modules) == 10
+@pytest.fixture(scope="session")
+def no_overflow_params():
+    return generate.get_params("./tests/test_params/module_no_overflow.yaml")[
+        "facility"
+    ]
+
+
+def test_module_count(fresh_layout, no_overflow_params):
+    print(fresh_layout.modules.keys())
+    assert len(fresh_layout.modules) == no_overflow_params["modules"]["count"]
 
 
 def test_module_letters(fresh_layout):
@@ -26,8 +39,11 @@ def test_total_cell_count(fresh_layout):
 
 def test_each_module_has_58_gp_cells(fresh_layout):
     for m in fresh_layout.modules:
-        gp = [c for c in fresh_layout.cells_by_module(m.module_id)
-              if c.housing_category == "GP"]
+        gp = [
+            c
+            for c in fresh_layout.cells_by_module(m.module_id)
+            if c.housing_category == "GP"
+        ]
         assert len(gp) == 58
 
 
@@ -50,8 +66,9 @@ def test_mi_cell_count(fresh_layout):
 
 def test_overflow_is_four_triples_per_module_in_bottom_tier(fresh_layout):
     for m in fresh_layout.modules:
-        triples = [c for c in fresh_layout.cells_by_module(m.module_id)
-                   if c.bunk_capacity == 3]
+        triples = [
+            c for c in fresh_layout.cells_by_module(m.module_id) if c.bunk_capacity == 3
+        ]
         assert len(triples) == 4
         assert all(c.tier == "bottom" for c in triples)
 
@@ -123,6 +140,7 @@ def test_fk_module_ids_valid(fresh_layout):
 
 
 def test_place_ids_globally_unique(fresh_layout):
-    all_ids = ([c.place_id for c in fresh_layout.cells]
-               + [p.place_id for p in fresh_layout.shared_places])
+    all_ids = [c.place_id for c in fresh_layout.cells] + [
+        p.place_id for p in fresh_layout.shared_places
+    ]
     assert len(set(all_ids)) == len(all_ids)

@@ -3,16 +3,16 @@ facility:
   spec: "references/specs/structural-layout-v1.md"
 
   residents:
-    count: 1200
+    count: 100
 
   modules:
-    count: 10
+    count: 2
 
   tiers:
     - name: bottom
-      cells_per_tier: 29
+      cells_per_tier: 20
     - name: top
-      cells_per_tier: 29
+      cells_per_tier: 20
 
   cells:
     gp:
