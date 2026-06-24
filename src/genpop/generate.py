@@ -1,5 +1,6 @@
 import csv
 import os
+import string
 from typing import Dict, List
 import random
 import yaml
@@ -150,18 +151,19 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
 
     module = data.get("facility") 
     module_name = module["name"]
-    module_letters = module["modules"]["letters"]
+    n_modules = module["modules"]["count"]
+    module_letters = [string.ascii_uppercase[i] for i in range(n_modules)]
     tiers = module["tiers"]
-    gp_cells = module["gp_cells"]
-    special_cells = module["special_cells"]
-    subplaces = module["subplaces"]["per_module"]
+    gp_cells = module["cells"]["gp"]
+    special_cells = module["cells"]["special"]
+    subplaces = module["subplaces"]
     shared_places = module["shared_places"]
 
     cell_id = module["place_ids"]["cell_id_start"]
     subplace_id = module["place_ids"]["subplace_id_start"]
     shared_id = module["place_ids"]["shared_id_start"]
 
-    facility_id = max(shared_id + len(shared_places), subplace_id + len(subplaces) * len(module_letters))
+    facility_id = max(shared_id + len(shared_places), subplace_id + len(subplaces) * n_modules)
     module_id_start = facility_id + 1
 
     module_parent_by_letter = {

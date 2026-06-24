@@ -68,6 +68,7 @@ def _opt_str(s: str) -> Optional[str]:
 
 
 def load_modules(path: str | os.PathLike) -> Dict[str, Module]:
+    # TODO it'd be easiest if the top of the csv was modules, and this just iterated through until we get a not-module
     with open(path) as f:
         modules = {
             r["module_id"]: Module(module_id=int(r["module_id"]), letter=r["letter"])
