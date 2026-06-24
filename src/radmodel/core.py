@@ -68,6 +68,7 @@ class CountsByPlaceLogger:
 
 class Model:
 
+    # schedule data: np array, n_schedule * TICKS_PER_DAY 1d array
     def __init__(self, comm: MPI.Intracomm, schedule_data: np.array, person_data: np.array,
                  place_data: Places, stoe: float, trans_matrix: np.array, duration_matrix: np.array, seed: int,
                  params: Dict[str, any]):
