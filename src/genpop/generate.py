@@ -208,7 +208,6 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
                 cell_id += 1
 
     for special in special_cells:
-        print(special)
         housing_category = special["housing_category"]
         place_type = housing_category.lower()
         if housing_category == "RH":
