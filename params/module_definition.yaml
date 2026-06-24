@@ -75,7 +75,7 @@ facility:
       capacity: null
 
     - name: medical
-      place_type: medical
+      place_type: module
       capacity: null
 
     - name: chapel
@@ -87,7 +87,7 @@ facility:
       capacity: null
 
     - name: segregation_unit
-      place_type: segregation
+      place_type: module
       capacity: null
 
   bunk_positions:

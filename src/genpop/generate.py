@@ -203,6 +203,8 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
                     "name": f"cell_{letter}_{tier_name}_{n}",
                     "type": "cell",
                     "subtype": gp_cells["housing_category"].lower(),
+                    "tier": tier,
+                    "capacity": gp_cells["default_bunk_capacity"],
                     "parent_id": parent_id,
                 })
                 cell_id += 1
@@ -223,6 +225,7 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
                 "name": f"{special['name_prefix']}_{i}",
                 "type": "cell",
                 "subtype": place_type,
+                "capacity": special["bunk_capacity"],
                 "parent_id": parent_id,
             })
             cell_id += 1
@@ -240,6 +243,6 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
             subplace_id += 1
 
     with open(output_file, "w") as fout:
-        writer = csv.DictWriter(fout, fieldnames=["place_id", "name", "type", "subtype", "parent_id"])
+        writer = csv.DictWriter(fout, fieldnames=["place_id", "name", "type", "subtype", "tier", "capacity", "parent_id"])
         writer.writeheader()
         writer.writerows(rows)

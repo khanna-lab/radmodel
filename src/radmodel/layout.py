@@ -8,6 +8,7 @@ is descriptive metadata for future schedule/movement work.
 import csv
 import os
 from dataclasses import dataclass, field
+import string
 from typing import Dict, List, Optional
 
 
@@ -37,7 +38,6 @@ class SharedPlace:
     name: str
     place_type: str
     module_id: Optional[int]
-    capacity: Optional[int]
     occupants: List[Agent] = field(default_factory=list)
 
 
@@ -54,47 +54,53 @@ class Module:
 
 @dataclass
 class Layout:
-    modules: Dict[str, Module] = field(default_factory=Dict)
+    modules: Dict[int, Module] = field(default_factory=dict)
+    shared_places: Dict[str, SharedPlace] = field(default_factory=dict)
 
     def add_module(self, module: Module):
-        self.modules.update({str(module.module_id): module})
+        self.modules.update({module.module_id: module})
+
+    def add_shared_place(self, shared_place: SharedPlace):
+        self.shared_places.update({shared_place.name: shared_place})
 
     def load_places(self, path: str | os.PathLike):
-        self.add_module(Module(module_id=-1, letter="NA"))
-        with open(path) as f:
+        with open(os.path.join(path, "ng_places.csv")) as f:
             for r in csv.DictReader(f):
-                module_id = r["module_id"] if r["module_id"] != "" else "-1"
-                if r["type"] == "module":
-                    self.add_module(
-                        Module(module_id=int(module_id), letter=r["letter"])
-                    )
+                if r["type"] == "facility":
+                    print(int(r["place_id"]))
+                    self.add_module(Module(module_id=int(r["place_id"]), letter="Z"))
+                elif r["type"] == "module":
+                    letter = string.ascii_lowercase[int(r["place_id"]) - 2012]
+                    self.add_module(Module(module_id=int(r["place_id"]), letter=letter))
                 elif r["type"] == "cell":
-                    try:
-                        self.modules[module_id].add_cell(
-                            Cell(
+                    self.modules[int(r["parent_id"])].add_cell(
+                        Cell(
+                            place_id=int(r["place_id"]),
+                            module_id=_opt_int(r["parent_id"]),
+                            tier=_opt_str(r["tier"]),
+                            cell_number=int(r["place_id"]),
+                            housing_category=r["subtype"],
+                            bunk_capacity=int(r["capacity"]),
+                            name=r["name"],
+                        )
+                    )
+
+                elif r["type"] == "shared":
+                    print(int(r["place_id"]))
+                    print(r["subtype"])
+                    if r["subtype"] == "module":
+                        print(int(r["place_id"]))
+                        self.add_module(Module(module_id=int(r["place_id"]), letter=""))
+                    else:
+                        self.add_shared_place(
+                            SharedPlace(
                                 place_id=int(r["place_id"]),
-                                module_id=_opt_int(r["module_id"]),
-                                tier=_opt_str(r["tier"]),
-                                cell_number=int(r["cell_number"]),
-                                housing_category=r["housing_category"],
-                                bunk_capacity=int(r["bunk_capacity"]),
                                 name=r["name"],
+                                place_type=r["subtype"],
+                                module_id=_opt_int(r["parent_id"]),
+                                # capacity=_opt_int(r["capacity"]),
                             )
                         )
-                    except KeyError:
-                        raise KeyError(
-                            f"Module {module_id} does not exist. Modules must be instantiated before cells or shared places."
-                        )
-                elif r["type"] == "shared":
-                    self.modules[module_id].shared_places.append(
-                        SharedPlace(
-                            place_id=int(r["place_id"]),
-                            name=r["name"],
-                            place_type=r["place_type"],
-                            module_id=_opt_int(r["module_id"]),
-                            capacity=_opt_int(r["capacity"]),
-                        )
-                    )
 
 
 def _opt_int(s: str) -> Optional[int]:
@@ -107,9 +113,6 @@ def _opt_str(s: str) -> Optional[str]:
 
 def load_layout(data_dir: str | os.PathLike) -> Layout:
     """Load all four structural CSVs from a directory."""
-    modules = load_modules(os.path.join(data_dir, "ng_modules.csv"))
-    print(modules["0"].cells)
-    load_cells(os.path.join(data_dir, "ng_cells.csv"), modules)
-    return Layout(
-        modules=modules,
-    )
+    layout = Layout()
+    layout.load_places(data_dir)
+    return layout
