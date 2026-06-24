@@ -1,6 +1,6 @@
 # radmodel
-Repository for code related to radx-up r21 radx modeling
 
+Repository for code related to radx-up r21 radx modeling
 
 ## Setup (Oscar, shared venv)
 
@@ -112,19 +112,22 @@ radmodel params/radmodel_params.yaml '{"output_dir": "output/exp_baseline"}'
 
 ## Submitting a Slurm job
 
-`submit_radmodel.sh` wraps the above for batch submission:
+`submit_radmodel.sh` wraps the above for batch submission. Virtual environment must be activated before running
 
-```bash
-sbatch submit_radmodel.sh                              # uses params/radmodel_params.yaml
-sbatch submit_radmodel.sh params/some_other.yaml       # different params file
+```console
+usage: ./submit_radmodel [-p params] [-m memory] [-j jobname] [-T walltime] [-n nodes]
+
+Submit radmodel to cluster
+  -p params           yaml file with repast4py-compatible parameters to run (default: ./params/radmodel_params.yaml)
+  -m memory           amount of memory to request per node, as #[k|m|g] (default: 8G)
+  -j jobname          name of analysis for organization (default: Analysis_{date})
+  -T walltime         as hh:mm:ss, max compute time (default: 02:00:00)
+  -n nodes            number of nodes (default: 1)
 ```
 
-The script automatically scopes each job's output to `output/run_<SLURM_JOB_ID>/`
-(or `output/run_local_<timestamp>/` if invoked outside Slurm), so concurrent
-runs and successive experiments don't overwrite each other. Job stdout/stderr
-go to `logs/radmodel_<jobid>.{out,err}`. Defaults: 1 node, 1 task, 8 GB, 2 h
-on the `batch` partition — tune `--mem`, `--time`, and `--ntasks` in the
-`#SBATCH` headers as needed.
+This script then runs the `batch.sh` script with specified submission parameters and 
+parameters file. The default output location for slurm file and results is 
+`/users/{USER}/scratch/radmodel/{jobname}`.
 
 Monitor and inspect:
 
@@ -137,16 +140,15 @@ seff <jobid>                                    # post-run RAM/CPU efficiency
 ```
 
 ## VSCODE Set up
+
 To use the correct Python environment in VS Code, select the following as your Python interpreter:
 
 ```
 /oscar/home/akhann16/code/radmodel/launch_radmodel.sh
 ```
 
-
 This wrapper script sources the project’s `settings.sh`, which sets `LD_LIBRARY_PATH` and activates the environment.
 
-
-
 ## Funding Information
-[R21 MD 019388](https://reporter.nih.gov/search/3xP1HNXGDkKYlxiG9LbyJA/project-details/10933019)  
+
+[R21 MD 019388](https://reporter.nih.gov/search/3xP1HNXGDkKYlxiG9LbyJA/project-details/10933019)
