@@ -9,7 +9,9 @@ import csv
 import os
 from dataclasses import dataclass, field
 import string
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union, Generic, TypeVar
+
+T = TypeVar('T')
 
 
 @dataclass
@@ -42,23 +44,35 @@ class SharedPlace:
 
 
 @dataclass
-class Module:
-    module_id: int
-    letter: str
+class BaseModule(Generic[T]):
+    module_id: T
     cells: List[Cell] = field(default_factory=list)
-    shared_places: List[SharedPlace] = field(default_factory=list)
 
     def add_cell(self, cell):
         self.cells.append(cell)
 
 
 @dataclass
+class Module(BaseModule[int]):
+    letter: str = ""
+    shared_places: List[SharedPlace] = field(default_factory=list)
+
+
+@dataclass
+class SharedModule(BaseModule[str]):
+    pass
+
+@dataclass
 class Layout:
     modules: Dict[int, Module] = field(default_factory=dict)
     shared_places: Dict[str, SharedPlace] = field(default_factory=dict)
+    shared_modules: Dict[str, SharedModule] = field(default_factory=dict)
 
     def add_module(self, module: Module):
         self.modules.update({module.module_id: module})
+
+    def add_shared_module(self, module: SharedModule):
+        self.shared_modules.update({module.module_id: module})
 
     def add_shared_place(self, shared_place: SharedPlace):
         self.shared_places.update({shared_place.name: shared_place})
@@ -66,31 +80,41 @@ class Layout:
     def load_places(self, path: str | os.PathLike):
         with open(os.path.join(path, "ng_places.csv")) as f:
             for r in csv.DictReader(f):
-                if r["type"] == "facility":
-                    print(int(r["place_id"]))
-                    self.add_module(Module(module_id=int(r["place_id"]), letter="Z"))
-                elif r["type"] == "module":
+                # if r["type"] == "facility":
+                #     self.add_module(Module(module_id=int(r["place_id"]), letter="Z"))
+                if r["type"] == "module":
                     letter = string.ascii_lowercase[int(r["place_id"]) - 2012]
                     self.add_module(Module(module_id=int(r["place_id"]), letter=letter))
                 elif r["type"] == "cell":
-                    self.modules[int(r["parent_id"])].add_cell(
-                        Cell(
-                            place_id=int(r["place_id"]),
-                            module_id=_opt_int(r["parent_id"]),
-                            tier=_opt_str(r["tier"]),
-                            cell_number=int(r["place_id"]),
-                            housing_category=r["subtype"],
-                            bunk_capacity=int(r["capacity"]),
-                            name=r["name"],
+                    if r["subtype"] == "gp":
+                        self.modules[int(r["parent_id"])].add_cell(
+                            Cell(
+                                place_id=int(r["place_id"]),
+                                module_id=_opt_int(r["parent_id"]),
+                                tier=_opt_str(r["tier"]),
+                                cell_number=int(r["place_id"]),
+                                housing_category=r["subtype"],
+                                bunk_capacity=int(r["capacity"]),
+                                name=r["name"],
+                            )
                         )
-                    )
+                    else:
+                        print(self.shared_modules)
+                        self.shared_modules[r["parent_id"]].add_cell(
+                            Cell(
+                                place_id=int(r["place_id"]),
+                                module_id=_opt_int(r["parent_id"]),
+                                tier="",
+                                cell_number=int(r["place_id"]),
+                                housing_category=r["subtype"],
+                                bunk_capacity=int(r["capacity"]),
+                                name=r["name"]
+                            )
+                        )
 
-                elif r["type"] == "shared":
-                    print(int(r["place_id"]))
-                    print(r["subtype"])
-                    if r["subtype"] == "module":
-                        print(int(r["place_id"]))
-                        self.add_module(Module(module_id=int(r["place_id"]), letter=""))
+                else:
+                    if r["subtype"] in "segregation" or "medical":
+                        self.add_shared_module(SharedModule(module_id=r["place_id"]))
                     else:
                         self.add_shared_place(
                             SharedPlace(
@@ -98,7 +122,6 @@ class Layout:
                                 name=r["name"],
                                 place_type=r["subtype"],
                                 module_id=_opt_int(r["parent_id"]),
-                                # capacity=_opt_int(r["capacity"]),
                             )
                         )
 
