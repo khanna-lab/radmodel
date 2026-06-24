@@ -46,6 +46,7 @@ class Module:
     module_id: int
     letter: str
     cells: List[Cell] = field(default_factory=list)
+    shared_places: List[SharedPlace] = field(default_factory=list)
 
     def add_cell(self, cell):
         self.cells.append(cell)
@@ -55,8 +56,45 @@ class Module:
 class Layout:
     modules: Dict[str, Module] = field(default_factory=Dict)
 
-    def add_module(self, module):
-        self.modules.update(module)
+    def add_module(self, module: Module):
+        self.modules.update({str(module.module_id): module})
+
+    def load_places(self, path: str | os.PathLike):
+        self.add_module(Module(module_id=-1, letter="NA"))
+        with open(path) as f:
+            for r in csv.DictReader(f):
+                module_id = r["module_id"] if r["module_id"] != "" else "-1"
+                if r["type"] == "module":
+                    self.add_module(
+                        Module(module_id=int(module_id), letter=r["letter"])
+                    )
+                elif r["type"] == "cell":
+                    try:
+                        self.modules[module_id].add_cell(
+                            Cell(
+                                place_id=int(r["place_id"]),
+                                module_id=_opt_int(r["module_id"]),
+                                tier=_opt_str(r["tier"]),
+                                cell_number=int(r["cell_number"]),
+                                housing_category=r["housing_category"],
+                                bunk_capacity=int(r["bunk_capacity"]),
+                                name=r["name"],
+                            )
+                        )
+                    except KeyError:
+                        raise KeyError(
+                            f"Module {module_id} does not exist. Modules must be instantiated before cells or shared places."
+                        )
+                elif r["type"] == "shared":
+                    self.modules[module_id].shared_places.append(
+                        SharedPlace(
+                            place_id=int(r["place_id"]),
+                            name=r["name"],
+                            place_type=r["place_type"],
+                            module_id=_opt_int(r["module_id"]),
+                            capacity=_opt_int(r["capacity"]),
+                        )
+                    )
 
 
 def _opt_int(s: str) -> Optional[int]:
@@ -65,45 +103,6 @@ def _opt_int(s: str) -> Optional[int]:
 
 def _opt_str(s: str) -> Optional[str]:
     return s if s != "" else None
-
-
-def load_modules(path: str | os.PathLike) -> Dict[str, Module]:
-    # TODO it'd be easiest if the top of the csv was modules, and this just iterated through until we get a not-module
-    with open(path) as f:
-        modules = {
-            r["module_id"]: Module(module_id=int(r["module_id"]), letter=r["letter"])
-            for r in csv.DictReader(f)
-        }
-        modules["-1"] = Module(module_id=-1, letter="NA")
-        return modules
-
-
-def load_cells(path, modules):
-    with open(path) as f:
-        for r in csv.DictReader(f):
-            module_id = r["module_id"] if r["module_id"] != "" else "-1"
-            if "type" not in r or r["type"] == "cell":
-                modules[module_id].add_cell(
-                    Cell(
-                        place_id=int(r["place_id"]),
-                        module_id=_opt_int(r["module_id"]),
-                        tier=_opt_str(r["tier"]),
-                        cell_number=int(r["cell_number"]),
-                        housing_category=r["housing_category"],
-                        bunk_capacity=int(r["bunk_capacity"]),
-                        name=r["name"],
-                    )
-                )
-            elif r["type"] == "shared":
-                modules[module_id]["shared_places"].append(
-                    SharedPlace(
-                        place_id=int(r["place_id"]),
-                        name=r["name"],
-                        place_type=r["place_type"],
-                        module_id=_opt_int(r["module_id"]),
-                        capacity=_opt_int(r["capacity"]),
-                    )
-                )
 
 
 def load_layout(data_dir: str | os.PathLike) -> Layout:
