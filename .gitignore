@@ -166,3 +166,5 @@ cython_debug/
 #.idea/
 
 scratch/
+.DS_Store # macOS cruft
+uv.lock
