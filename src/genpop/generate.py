@@ -185,7 +185,8 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
         rows.append({
             "place_id": shared_id,
             "name": place["name"],
-            "type": place["place_type"],
+            "type": "shared",
+            "subtype": place["place_type"],
             "parent_id": facility_id,
         })
         special_parent_ids[place["place_type"]] = shared_id
@@ -200,12 +201,14 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
                 rows.append({
                     "place_id": cell_id,
                     "name": f"cell_{letter}_{tier_name}_{n}",
-                    "type": gp_cells["housing_category"].lower(),
+                    "type": "cell",
+                    "subtype": gp_cells["housing_category"].lower(),
                     "parent_id": parent_id,
                 })
                 cell_id += 1
 
     for special in special_cells:
+        print(special)
         housing_category = special["housing_category"]
         place_type = housing_category.lower()
         if housing_category == "RH":
@@ -219,7 +222,8 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
             rows.append({
                 "place_id": cell_id,
                 "name": f"{special['name_prefix']}_{i}",
-                "type": place_type,
+                "type": "cell",
+                "subtype": place_type,
                 "parent_id": parent_id,
             })
             cell_id += 1
@@ -230,12 +234,13 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
             rows.append({
                 "place_id": subplace_id,
                 "name": subplace["name_template"].format(module_letter=letter),
-                "type": subplace["place_type"],
+                "type": "subplace",
+                "subtype": subplace["place_type"],
                 "parent_id": parent_id,
             })
             subplace_id += 1
 
     with open(output_file, "w") as fout:
-        writer = csv.DictWriter(fout, fieldnames=["place_id", "name", "type", "parent_id"])
+        writer = csv.DictWriter(fout, fieldnames=["place_id", "name", "type", "subtype", "parent_id"])
         writer.writeheader()
         writer.writerows(rows)
