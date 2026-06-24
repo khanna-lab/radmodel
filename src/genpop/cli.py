@@ -1,5 +1,5 @@
 import click
-from . import generate
+import generate
 
 
 @click.group(context_settings=dict(help_option_names=[u"-h", u"--help"]))
