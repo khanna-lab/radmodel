@@ -1,6 +1,7 @@
 """Tests for the v1 structural layout (see references/specs/structural-layout-v1.md)."""
 
 import os
+import string
 import pytest
 
 from genpop import generate
@@ -18,23 +19,39 @@ def fresh_layout(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def no_overflow_params():
+def params_no_overflow():
     return generate.get_params("./tests/test_params/module_no_overflow.yaml")[
         "facility"
     ]
 
 
-def test_module_count(fresh_layout, no_overflow_params):
-    print(fresh_layout.modules.keys())
-    assert len(fresh_layout.modules) == no_overflow_params["modules"]["count"]
+def test_module_count(fresh_layout, params_no_overflow):
+    assert len(fresh_layout.modules) == params_no_overflow["modules"]["count"]
 
 
 def test_module_letters(fresh_layout):
-    assert [m.letter for m in fresh_layout.modules] == list("ABCDEFGHIJ")
+    assert [m.letter for m in fresh_layout.modules.values()] == list(
+        string.ascii_uppercase[0 : len(fresh_layout.modules)]
+    )
 
 
-def test_total_cell_count(fresh_layout):
-    assert len(fresh_layout.cells) == 580 + 30 + 20
+def test_total_cell_count(fresh_layout, params_no_overflow):
+    n_gp_cells = (
+        sum([tier["cells_per_tier"] for tier in params_no_overflow["tiers"]])
+        * params_no_overflow["cells"]["gp"]["default_bunk_capacity"]
+    )
+    assert (
+        sum([len(module.cells) for module in fresh_layout.modules.values()])
+        == n_gp_cells
+    )
+
+    n_special = sum(
+        [len(module.cells) for module in fresh_layout.shared_modules.values()]
+    )
+    assert (
+        sum([special["count"] for special in params_no_overflow["cells"]["special"]])
+        == n_special
+    )
 
 
 def test_each_module_has_58_gp_cells(fresh_layout):
