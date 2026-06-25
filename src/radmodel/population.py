@@ -251,7 +251,6 @@ class Places:
 def create_places(fname: str | os.PathLike) -> Places:
     """Create places data array from CSV file.
 
-
     Parameters
     ==========
     fname: str | os.PathLike

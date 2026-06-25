@@ -114,9 +114,9 @@ class Model:
             in each place.
         stoe : float
             The standard time of exposure.
-        trans_matrix : np.ndarray
+        trans_matrix : np.array
             The transmission matrix.
-        duration_matrix : np.ndarray
+        duration_matrix : np.array
             The duration matrix.
         seed : int
             The random seed.
@@ -127,9 +127,11 @@ class Model:
         n_schedules = int(schedule_data.shape[0] / TICKS_PER_DAY)
         self.schedule_data = schedule_data
         self.offsets = np.arange(0, n_schedules, dtype=np.int64) * TICKS_PER_DAY
-        self.idx = np.zeros((n_schedules), dtype=np.int64)
+        # Array of indices into the schedule_data array,
+        # 1 for each schedule, that is updated each tick
+        self.schedule_idx = np.zeros((n_schedules), dtype=np.int64)
         # array of indices into resident's place columns, 1 for each schedule
-        self.next_place_idxs = np.zeros((n_schedules), dtype=np.uint32)
+        self.next_place_types = np.zeros((n_schedules), dtype=np.uint32)
         # self.risks = np.zeros((n_schedules))
         self.person_data = person_data
         self.place_data = place_data
@@ -156,7 +158,7 @@ class Model:
             self.rng.gamma(k, scale, n_exposed) * TICKS_PER_DAY,
         )
 
-    def _init_logging(self, comm: MPI.Intracomm, params: Dict):
+    def _init_logging(self, comm: MPI.Intracomm, params: dict):
         log_file = params["counts_log_file"]
         self.counts = Counts()
         loggers = logging.create_loggers(self.counts, op=MPI.SUM, rank=comm.Get_rank())
@@ -190,22 +192,23 @@ class Model:
         # as having a hierarchical structure.
 
         # add tick index to offset to get the schedule inidices
-        np.add(self.offsets, tick % TICKS_PER_DAY, out=self.idx)
+        np.add(self.offsets, tick % TICKS_PER_DAY, out=self.schedule_idx)
 
         # TODO: This assumes a flat structure of the facility. Now that we have a hierarchical structure,
         # we need to update this logic
 
         # Sets the next place type (person place column idx) for each schedule
-        self.next_place_idxs[:] = self.schedule_data[self.idx]
+        self.next_place_types[:] = self.schedule_data[self.schedule_idx]
 
         # Set the current place for each person by
         # 1. Getting the column idxs for the next places via next_place_idxs and each persons schedule_idx
         # 2. Set the current place id column to the value in the selected next_place_column idxs
-        residents_next_place_idxs = self.next_place_idxs[
+        residents_next_place_types = self.next_place_types[
             self.person_data[:, P_SCHEDULE_IDX]
         ]
+        # TODO: This is what we need to change
         self.person_data[:, P_CURRENT_PLACE_IDX] = self.person_data[
-            self.row_idxs, residents_next_place_idxs
+            self.row_idxs, residents_next_place_types
         ]
 
         # sets total persons in each place: unique place ids (which are also row indexs in place data),
@@ -381,7 +384,7 @@ class Model:
         self._log(tick)
 
 
-def create_duration_matrix(params: Dict[str, float]):
+def create_duration_matrix(params: dict[str, float]):
     # 8 states, but we won"t use all of them (e.g. dead duration)
     durations = np.zeros((len(STATE_MAP), 2), dtype=np.float32)
     durations[EXPOSED] = (
@@ -411,7 +414,7 @@ def create_duration_matrix(params: Dict[str, float]):
     return durations
 
 
-def create_trans_matrix(transition_matrix: Dict[str, Dict[str, float]]):
+def create_trans_matrix(transition_matrix: dict[str, dict[str, float]]):
     n_states = len(STATE_MAP)
     trans_matrix = np.zeros((n_states, n_states), dtype=np.float32)
     for i_key, v in transition_matrix.items():
