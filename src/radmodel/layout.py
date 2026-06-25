@@ -67,9 +67,9 @@ class SharedModule(BaseModule[str]):
 
 @dataclass
 class Layout:
-    places_id_map: Dict[int, int] = {}
+    places_id_map: Dict[int, int] = field(default_factory=dict)
     n_places = 0
-    place_data: ndarray = zeros((), dtype=uint32)
+    place_data: ndarray = field(default_factory=lambda: zeros((), dtype=uint32))
     modules: Dict[int, Module] = field(default_factory=dict)
     shared_places: Dict[str, SharedPlace] = field(default_factory=dict)
     shared_modules: Dict[str, SharedModule] = field(default_factory=dict)
@@ -85,8 +85,15 @@ class Layout:
 
     def load_places(self, path: str | os.PathLike):
         with open(os.path.join(path, "ng_places.csv")) as f:
-            for r in csv.DictReader(f):
-                self.n_places += 1
+            self.n_places = len(f.readlines()) - 1
+        with open(os.path.join(path, "ng_places.csv")) as f:
+            self.place_data = zeros((self.n_places, 3), dtype=uint32)
+            i = 0
+            reader = csv.DictReader(f)
+            for r in reader:
+                n_id = int(r["place_id"])
+                self.places_id_map[n_id] = i
+                self.place_data[i, 0] = n_id
                 if r["type"] == "module":
                     letter = string.ascii_uppercase[int(r["place_id"]) - 2012]
                     self.add_module(Module(module_id=int(r["place_id"]), letter=letter))
@@ -128,7 +135,7 @@ class Layout:
                                 module_id=_opt_int(r["parent_id"]),
                             )
                         )
-                self.place_data = zeros((self.n_places, 3), dtype=uint32)
+                i += 1
 
 
 def _opt_int(s: str) -> Optional[int]:

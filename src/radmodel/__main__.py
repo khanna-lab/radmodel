@@ -1,10 +1,11 @@
 from typing import Dict
-from mpi4py import MPI
+# from mpi4py import MPI
 import os
 
-from repast4py.parameters import create_args_parser, init_params
+# from repast4py.parameters import create_args_parser, init_params
 from . import population
-from . import core
+# from . import core
+from . import layout
 
 
 def run(params: Dict, comm):
@@ -12,7 +13,8 @@ def run(params: Dict, comm):
     fname = params["schedule_file"]
     schedule_id_map, schedule_data, risks = population.create_schedules(fname)
     fname = params["places_file"]
-    places: population.Places = population.create_places(fname)
+    prison_layout = layout.load_layout("data/")
+    places: population.Places = population.Places(prison_layout.places_id_map, prison_layout.place_data)
     fname = params["residents_file"]
     residents = population.create_residents(fname, places.place_id_map, schedule_id_map)
 
@@ -43,8 +45,12 @@ def main():
                 v = v.replace("$JOBNAME", os.getenv("SLURM_JOB_NAME"))
             params[k] = v
     os.makedirs(out_dir, exist_ok=True)
-    run(params, MPI.COMM_WORLD)
+    # run(params, MPI.COMM_WORLD)
 
 
 if __name__ == "__main__":
     main()
+    # schedule_id_map, schedule_data, risks = population.create_schedules(fname)
+    # prison_layout = layout.load_layout("data/")
+    # places: population.Places = population.Places(prison_layout.places_id_map, prison_layout.place_data)
+    # print(places.place_id_map)

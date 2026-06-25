@@ -248,3 +248,6 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
         writer = csv.DictWriter(fout, fieldnames=["place_id", "name", "type", "subtype", "tier", "capacity", "parent_id"])
         writer.writeheader()
         writer.writerows(rows)
+
+if __name__ == "__main__":
+    generate_places("params/module_definition.yaml", "data/ng_places.csv")
