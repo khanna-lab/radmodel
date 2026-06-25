@@ -9,9 +9,12 @@ import csv
 import os
 from dataclasses import dataclass, field
 import string
-from typing import Dict, List, Optional, Union, Generic, TypeVar
+from numpy import uint32, zeros, ndarray
+from typing import Dict, List, Optional, Generic, TypeVar
 
-T = TypeVar('T')
+from .population import Places
+
+T = TypeVar("T")
 
 
 @dataclass
@@ -64,6 +67,9 @@ class SharedModule(BaseModule[str]):
 
 @dataclass
 class Layout:
+    places_id_map: Dict[int, int] = {}
+    n_places = 0
+    place_data: ndarray = zeros((), dtype=uint32)
     modules: Dict[int, Module] = field(default_factory=dict)
     shared_places: Dict[str, SharedPlace] = field(default_factory=dict)
     shared_modules: Dict[str, SharedModule] = field(default_factory=dict)
@@ -80,6 +86,7 @@ class Layout:
     def load_places(self, path: str | os.PathLike):
         with open(os.path.join(path, "ng_places.csv")) as f:
             for r in csv.DictReader(f):
+                self.n_places += 1
                 if r["type"] == "module":
                     letter = string.ascii_uppercase[int(r["place_id"]) - 2012]
                     self.add_module(Module(module_id=int(r["place_id"]), letter=letter))
@@ -121,6 +128,7 @@ class Layout:
                                 module_id=_opt_int(r["parent_id"]),
                             )
                         )
+                self.place_data = zeros((self.n_places, 3), dtype=uint32)
 
 
 def _opt_int(s: str) -> Optional[int]:
