@@ -85,6 +85,18 @@ tests/test_core.py .................                                     [100%]
 ============================== 17 passed in 5.28s ==============================
 ```
 
+Running specific tests:
+
+```
+pytest tests/test_core.py::test_create_schedule
+```
+
+Or to run a few related ones with -k keyword matching:
+
+```
+pytest tests/test_core.py -k "select_next_place"
+```
+
 ## Output directory
 
 Each run writes `counts.csv` and `counts_by_place.csv` to a directory

@@ -1,5 +1,6 @@
 # Added by hand
-references/
+references/*
+!references/specs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -165,3 +166,6 @@ cython_debug/
 #.idea/
 
 scratch/
+*/.DS_Store # macOS cruft
+.DS_Store
+uv.lock
