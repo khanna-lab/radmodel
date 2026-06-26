@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 import string
 from numpy import uint32, zeros, ndarray
 from typing import TypeVar
-# from typing import Dict, List, Optional, Generic, 
 
 T = TypeVar("T")
 
@@ -20,7 +19,6 @@ T = TypeVar("T")
 class Agent:
     person_id: int
     module_id: int
-    cell_id: int
     cell_place_id: int
 
 
