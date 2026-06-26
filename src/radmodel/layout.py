@@ -44,11 +44,21 @@ class SharedPlace:
 
 
 @dataclass
-class BaseModule():
+class BaseModule:
     cells: list[Cell] = field(default_factory=list)
 
-    def add_cell(self, cell):
-        self.cells.append(cell)
+    def add_cell(self, **r):
+        self.cells.append(
+            Cell(
+                place_id=int(r["place_id"]),
+                module_id=_opt_int(r["parent_id"]),
+                tier="",
+                cell_number=int(r["place_id"]),
+                housing_category=r["subtype"],
+                bunk_capacity=int(r["capacity"]),
+                name=r["name"],
+            )
+        )
 
 
 @dataclass
@@ -63,6 +73,7 @@ class SharedModule(BaseModule):
     module_id: str = ""
     pass
 
+
 @dataclass
 class Layout:
     """Class to hold the hierarchical layout of the prison.
@@ -72,7 +83,7 @@ class Layout:
       a places_id_map: dict[int, int]
       and place_data: ndarray
     """
-    
+
     places_id_map: dict[int, int] = field(default_factory=dict)
     n_places = 0
     place_data: ndarray = field(default_factory=lambda: zeros((), dtype=uint32))
@@ -80,14 +91,28 @@ class Layout:
     shared_places: dict[str, SharedPlace] = field(default_factory=dict)
     shared_modules: dict[str, SharedModule] = field(default_factory=dict)
 
-    def add_module(self, module: Module):
-        self.modules.update({module.module_id: module})
+    def add_module(self, **r):
+        letter = string.ascii_uppercase[int(r["place_id"]) - 2012]
+        self.modules.update(
+            {int(r["place_id"]): Module(module_id=int(r["place_id"]), letter=letter)}
+        )
 
-    def add_shared_module(self, module: SharedModule):
-        self.shared_modules.update({module.module_id: module})
+    def add_shared_module(self, **r):
+        self.shared_modules.update(
+            {r["place_id"]: SharedModule(module_id=r["place_id"])}
+        )
 
-    def add_shared_place(self, shared_place: SharedPlace):
-        self.shared_places.update({shared_place.name: shared_place})
+    def add_shared_place(self, **r):
+        self.shared_places.update(
+            {
+                r["name"]: SharedPlace(
+                    place_id=int(r["place_id"]),
+                    name=r["name"],
+                    place_type=r["subtype"],
+                    module_id=_opt_int(r["parent_id"]),
+                )
+            }
+        )
 
     def load_places(self, path: str | os.PathLike):
         """Loads the csv generated from the generate.generate_places function.
@@ -107,48 +132,28 @@ class Layout:
                 n_id = int(r["place_id"])
                 self.places_id_map[n_id] = i
                 self.place_data[i, 0] = n_id
+                # TODO this should probably have some sort of mapping for the functions instead of an if
                 if r["type"] == "module":
-                    letter = string.ascii_uppercase[int(r["place_id"]) - 2012]
-                    self.add_module(Module(module_id=int(r["place_id"]), letter=letter))
+                    self.add_module(**r)
                 elif r["type"] == "cell":
                     if r["subtype"] == "gp":
-                        self.modules[int(r["parent_id"])].add_cell(
-                            Cell(
-                                place_id=int(r["place_id"]),
-                                module_id=_opt_int(r["parent_id"]),
-                                tier=_opt_str(r["tier"]),
-                                cell_number=int(r["place_id"]),
-                                housing_category=r["subtype"],
-                                bunk_capacity=int(r["capacity"]),
-                                name=r["name"],
-                            )
-                        )
+                        self.modules[int(r["parent_id"])].add_cell(**r)
                     else:
-                        self.shared_modules[r["parent_id"]].add_cell(
-                            Cell(
-                                place_id=int(r["place_id"]),
-                                module_id=_opt_int(r["parent_id"]),
-                                tier="",
-                                cell_number=int(r["place_id"]),
-                                housing_category=r["subtype"],
-                                bunk_capacity=int(r["capacity"]),
-                                name=r["name"]
-                            )
-                        )
+                        self.shared_modules[r["parent_id"]].add_cell(**r)
 
                 else:
                     if r["subtype"] in ["segregation", "medical"]:
-                        self.add_shared_module(SharedModule(module_id=r["place_id"]))
+                        self.add_shared_module(**r)
                     else:
-                        self.add_shared_place(
-                            SharedPlace(
-                                place_id=int(r["place_id"]),
-                                name=r["name"],
-                                place_type=r["subtype"],
-                                module_id=_opt_int(r["parent_id"]),
-                            )
-                        )
+                        self.add_shared_place(**r)
                 i += 1
+
+    @classmethod
+    def load_from_csv(cls, data_dir: str | os.PathLike) -> "Layout":
+        """Load the structural CSV from a directory."""
+        layout = Layout()
+        layout.load_places(data_dir)
+        return layout
 
 
 def _opt_int(s: str) -> int | None:
@@ -157,10 +162,3 @@ def _opt_int(s: str) -> int | None:
 
 def _opt_str(s: str) -> str | None:
     return s if s != "" else None
-
-
-def load_layout(data_dir: str | os.PathLike) -> Layout:
-    """Load the structural CSV from a directory."""
-    layout = Layout()
-    layout.load_places(data_dir)
-    return layout
