@@ -1,5 +1,6 @@
 import csv
 import os
+import string
 from typing import Dict, List
 import random
 import yaml
@@ -33,36 +34,12 @@ def parse_schedule_ids(schedules_file: str | os.PathLike) -> List[int]:
     return ids
 
 
-def generate_persons(num_persons: int, persons_per_cell: int, places_file: str | os.PathLike,
-                     schedules_file: str | os.PathLike, output_file: str | os.PathLike):
-    places = parse_places(places_file)
-    schedule_ids = parse_schedule_ids(schedules_file)
-    n_cells = len(places["cell"])
-    if num_persons / persons_per_cell > n_cells:
-        raise ValueError(f"Not enough cells for {num_persons} and {persons_per_cell} persons per cell")
-
-    cell_idx = 0
-    n_in_cell = 0
-    with open(output_file, "w") as fout:
-        writer = csv.writer(fout)
-        writer.writerow(["person_id", "schedule_id", "cell", "activities", "cafeterias", "outdoors"])
-        for i in range(num_persons):
-            cell_id = places["cell"][cell_idx]
-            schedule_id = random.choice(schedule_ids)
-            acts = [str(x) for x in random.sample(places["activity"], 2)]
-            cafs = [str(x) for x in random.sample(places["cafeteria"], 2)]
-            outdoors = places["outdoor"][0]
-            writer.writerow([i, schedule_id, cell_id, "|".join(acts), "|".join(cafs), outdoors])
-
-            n_in_cell += 1
-            if n_in_cell == persons_per_cell:
-                cell_idx += 1
-                n_in_cell = 0
-
-
-def generate_persons2(num_persons: int, places_file: str | os.PathLike,
-                      mod_def_file: str | os.PathLike,
-                      output_file: str | os.PathLike):
+def generate_persons(
+    num_persons: int,
+    places_file: str | os.PathLike,
+    mod_def_file: str | os.PathLike,
+    output_file: str | os.PathLike,
+):
     print("Warning: Using Single Schedule 0")
 
     places = parse_places(places_file)
@@ -80,8 +57,18 @@ def generate_persons2(num_persons: int, places_file: str | os.PathLike,
     # than round robin assignment of mods
     with open(output_file, "w") as fout:
         writer = csv.writer(fout)
-        writer.writerow(["person_id", "schedule_id", "cell", "cafeteria", "morning_act",
-                         "noon_act", "evening_act", "mod"])
+        writer.writerow(
+            [
+                "person_id",
+                "schedule_id",
+                "cell",
+                "cafeteria",
+                "morning_act",
+                "noon_act",
+                "evening_act",
+                "mod",
+            ]
+        )
         for i in range(num_persons):
             cell_id = places["cell"][cell_idx]
             schedule_id = 0
@@ -90,8 +77,18 @@ def generate_persons2(num_persons: int, places_file: str | os.PathLike,
             afternoon_act = random.choice(places[mod_acts[1]])
             evening_act = random.choice(places[mod_acts[2]])
 
-            writer.writerow([i, schedule_id, cell_id, cafeteria, morning_act, afternoon_act,
-                             evening_act, mod_idx])
+            writer.writerow(
+                [
+                    i,
+                    schedule_id,
+                    cell_id,
+                    cafeteria,
+                    morning_act,
+                    afternoon_act,
+                    evening_act,
+                    mod_idx,
+                ]
+            )
 
             mod_idx += 1
             if mod_idx == n_mods:
@@ -105,21 +102,26 @@ def generate_persons2(num_persons: int, places_file: str | os.PathLike,
 
 def generate_schedule(schedule_id: int):
     # in cell from midnight to 6AM, 7PM to midnight
-    acts = [[schedule_id, 0, "cell", 1],
-            [schedule_id, 19 * 60, "cell", 1]]
+    acts = [[schedule_id, 0, "cell", 1], [schedule_id, 19 * 60, "cell", 1]]
 
     breakfast = random.choice([6, 7])
     lunch = random.choice([11, 12, 13])
     dinner = random.choice([17, 18])
 
-    acts += [[schedule_id, breakfast * 60, "cafeteria", 1],
-             [schedule_id, lunch * 60, "cafeteria", 1],
-             [schedule_id, dinner * 60, "cafeteria", 1]]
+    acts += [
+        [schedule_id, breakfast * 60, "cafeteria", 1],
+        [schedule_id, lunch * 60, "cafeteria", 1],
+        [schedule_id, dinner * 60, "cafeteria", 1],
+    ]
 
     # activities between breakfast and lunch
-    morning_acts = [[schedule_id, h * 60, "activity", 1] for h in range(breakfast + 1, lunch)]
-    afternoon_acts = [[schedule_id, h * 60, random.choice(["outdoor", "activity", "activity"]), 1]
-                      for h in range(lunch + 1, dinner)]
+    morning_acts = [
+        [schedule_id, h * 60, "activity", 1] for h in range(breakfast + 1, lunch)
+    ]
+    afternoon_acts = [
+        [schedule_id, h * 60, random.choice(["outdoor", "activity", "activity"]), 1]
+        for h in range(lunch + 1, dinner)
+    ]
     acts += morning_acts + afternoon_acts
 
     acts.sort(key=lambda x: x[1])
@@ -142,3 +144,155 @@ def generate_cells(num_cells: int, output_file: str | os.PathLike):
         writer.writerow(["place_id", "name", "type"])
         for i in range(num_cells):
             writer.writerow([i, f"cell_{i}", "cell"])
+
+
+def get_params(mod_def_file):
+    with open(mod_def_file) as fin:
+        return yaml.safe_load(fin)
+
+
+def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathLike):
+    """Generates a csv containing all places, fields:
+    place_id | name | type | subtype | tier | capacity | parent_id
+
+    Parameters
+    ==========
+    mod_def_file: str | os.PathLike
+        Path to a .yaml file containing parameters to define the setting
+    output_file: str | os.PathLike
+        Path to file location to save the place csv.
+    """
+
+    data = get_params(mod_def_file)
+
+    module = data.get("facility")
+    module_name = module["name"]
+    n_modules = module["modules"]["count"]
+    module_letters = [string.ascii_uppercase[i] for i in range(n_modules)]
+    tiers = module["tiers"]
+    gp_cells = module["cells"]["gp"]
+    special_cells = module["cells"]["special"]
+    subplaces = module["subplaces"]
+    shared_places = module["shared_places"]
+
+    cell_id = module["place_ids"]["cell_id_start"]
+    subplace_id = module["place_ids"]["subplace_id_start"]
+    shared_id = module["place_ids"]["shared_id_start"]
+
+    facility_id = max(
+        shared_id + len(shared_places), subplace_id + len(subplaces) * n_modules
+    )
+    module_id_start = facility_id + 1
+
+    module_parent_by_letter = {
+        letter: module_id_start + i for i, letter in enumerate(module_letters)
+    }
+
+    rows = [
+        {
+            "place_id": facility_id,
+            "name": module_name,
+            "type": "facility",
+            "parent_id": "",
+        }
+    ]
+    for letter in module_letters:
+        rows.append(
+            {
+                "place_id": module_parent_by_letter[letter],
+                "name": f"module_{letter}",
+                "type": "module",
+                "parent_id": facility_id,
+            }
+        )
+
+    special_parent_ids: Dict[str, int] = {}
+
+    for place in shared_places:
+        rows.append(
+            {
+                "place_id": shared_id,
+                "name": place["name"],
+                "type": "shared",
+                "subtype": place["place_type"],
+                "parent_id": facility_id,
+            }
+        )
+        special_parent_ids[place["place_type"]] = shared_id
+        shared_id += 1
+
+    for letter in module_letters:
+        parent_id = module_parent_by_letter[letter]
+        for tier in tiers:
+            tier_name = tier["name"]
+            cells_per_tier = tier["cells_per_tier"]
+            for n in range(1, cells_per_tier + 1):
+                rows.append(
+                    {
+                        "place_id": cell_id,
+                        "name": f"cell_{letter}_{tier_name}_{n}",
+                        "type": "cell",
+                        "subtype": gp_cells["housing_category"].lower(),
+                        "tier": tier,
+                        "capacity": gp_cells["default_bunk_capacity"],
+                        "parent_id": parent_id,
+                    }
+                )
+                cell_id += 1
+
+    for special in special_cells:  # cells outside the general population category
+        housing_category = special["housing_category"]
+        place_type = housing_category.lower()
+        if housing_category == "RH":
+            parent_id = special_parent_ids.get("segregation", facility_id)
+        elif housing_category == "MI":
+            parent_id = special_parent_ids.get("medical", facility_id)
+        else:
+            parent_id = facility_id
+
+        for i in range(1, special["count"] + 1):
+            rows.append(
+                {
+                    "place_id": cell_id,
+                    "name": f"{special['name_prefix']}_{i}",
+                    "type": "cell",
+                    "subtype": place_type,
+                    "capacity": special["bunk_capacity"],
+                    "parent_id": parent_id,
+                }
+            )
+            cell_id += 1
+
+    for letter in module_letters:
+        parent_id = module_parent_by_letter[letter]
+        for subplace in subplaces:
+            rows.append(
+                {
+                    "place_id": subplace_id,
+                    "name": subplace["name_template"].format(module_letter=letter),
+                    "type": "subplace",
+                    "subtype": subplace["place_type"],
+                    "parent_id": parent_id,
+                }
+            )
+            subplace_id += 1
+
+    with open(output_file, "w") as fout:
+        writer = csv.DictWriter(
+            fout,
+            fieldnames=[
+                "place_id",
+                "name",
+                "type",
+                "subtype",
+                "tier",
+                "capacity",
+                "parent_id",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+if __name__ == "__main__":
+    generate_places("params/module_definition.yaml", "data/ng_places.csv")
