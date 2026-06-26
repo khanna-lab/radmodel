@@ -62,7 +62,7 @@ def create_cells(num_cells: int, output_file):
 #     required=True
 # )
 def create_persons(num_persons: int, places_file, module_definition_file, output_file):
-    generate.generate_persons2(num_persons, places_file, module_definition_file, output_file)
+    generate.generate_persons(num_persons, places_file, module_definition_file, output_file)
 
 
 @cli.command("create_schedules")

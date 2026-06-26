@@ -34,34 +34,7 @@ def parse_schedule_ids(schedules_file: str | os.PathLike) -> List[int]:
     return ids
 
 
-def generate_persons(num_persons: int, persons_per_cell: int, places_file: str | os.PathLike,
-                     schedules_file: str | os.PathLike, output_file: str | os.PathLike):
-    places = parse_places(places_file)
-    schedule_ids = parse_schedule_ids(schedules_file)
-    n_cells = len(places["cell"])
-    if num_persons / persons_per_cell > n_cells:
-        raise ValueError(f"Not enough cells for {num_persons} and {persons_per_cell} persons per cell")
-
-    cell_idx = 0
-    n_in_cell = 0
-    with open(output_file, "w") as fout:
-        writer = csv.writer(fout)
-        writer.writerow(["person_id", "schedule_id", "cell", "activities", "cafeterias", "outdoors"])
-        for i in range(num_persons):
-            cell_id = places["cell"][cell_idx]
-            schedule_id = random.choice(schedule_ids)
-            acts = [str(x) for x in random.sample(places["activity"], 2)]
-            cafs = [str(x) for x in random.sample(places["cafeteria"], 2)]
-            outdoors = places["outdoor"][0]
-            writer.writerow([i, schedule_id, cell_id, "|".join(acts), "|".join(cafs), outdoors])
-
-            n_in_cell += 1
-            if n_in_cell == persons_per_cell:
-                cell_idx += 1
-                n_in_cell = 0
-
-
-def generate_persons2(num_persons: int, places_file: str | os.PathLike,
+def generate_persons(num_persons: int, places_file: str | os.PathLike,
                       mod_def_file: str | os.PathLike,
                       output_file: str | os.PathLike):
     print("Warning: Using Single Schedule 0")
