@@ -67,6 +67,14 @@ class SharedModule(BaseModule[str]):
 
 @dataclass
 class Layout:
+    """Class to hold the hierarchical layout of the prison.
+
+    Generates variables needed for the Places class:
+      a structural `Layout` containing `Module`s and their associated `Cell`s
+      a places_id_map: Dict[int, int]
+      and place_data: ndarray
+    """
+    
     places_id_map: Dict[int, int] = field(default_factory=dict)
     n_places = 0
     place_data: ndarray = field(default_factory=lambda: zeros((), dtype=uint32))
@@ -84,6 +92,13 @@ class Layout:
         self.shared_places.update({shared_place.name: shared_place})
 
     def load_places(self, path: str | os.PathLike):
+        """Loads the csv generated from the generate.generate_places function.
+
+        Parameters
+        ==========
+        path: str | os.PathLike
+            path to folder containing ng_places.csv
+        """
         with open(os.path.join(path, "ng_places.csv")) as f:
             self.n_places = len(f.readlines()) - 1
         with open(os.path.join(path, "ng_places.csv")) as f:
@@ -147,7 +162,7 @@ def _opt_str(s: str) -> Optional[str]:
 
 
 def load_layout(data_dir: str | os.PathLike) -> Layout:
-    """Load all four structural CSVs from a directory."""
+    """Load the structural CSV from a directory."""
     layout = Layout()
     layout.load_places(data_dir)
     return layout

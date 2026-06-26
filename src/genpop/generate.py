@@ -122,6 +122,17 @@ def get_params(mod_def_file):
         return yaml.safe_load(fin)
 
 def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathLike):
+    """Generates a csv containing all places, fields:
+    place_id | name | type | subtype | tier | capacity | parent_id
+
+    Parameters
+    ==========
+    mod_def_file: str | os.PathLike
+        Path to a .yaml file containing parameters to define the setting
+    output_file: str | os.PathLike
+        Path to file location to save the place csv.
+    """
+
     data = get_params(mod_def_file)
 
     module = data.get("facility") 
@@ -184,7 +195,7 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
                 })
                 cell_id += 1
 
-    for special in special_cells:
+    for special in special_cells: # cells outside the general population category
         housing_category = special["housing_category"]
         place_type = housing_category.lower()
         if housing_category == "RH":
