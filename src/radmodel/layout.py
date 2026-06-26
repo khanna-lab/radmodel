@@ -10,9 +10,8 @@ import os
 from dataclasses import dataclass, field
 import string
 from numpy import uint32, zeros, ndarray
-from typing import Dict, List, Optional, Generic, TypeVar
-
-from .population import Places
+from typing import TypeVar
+# from typing import Dict, List, Optional, Generic, 
 
 T = TypeVar("T")
 
@@ -28,13 +27,13 @@ class Agent:
 @dataclass
 class Cell:
     place_id: int
-    module_id: Optional[int]
-    tier: Optional[str]
+    module_id: int | None
+    tier: str | None
     cell_number: int
     housing_category: str  # "GP", "RH", "MI"
     bunk_capacity: int
     name: str
-    occupants: List[Agent] = field(default_factory=list)
+    occupants: list[Agent] = field(default_factory=list)
 
 
 @dataclass
@@ -42,27 +41,28 @@ class SharedPlace:
     place_id: int
     name: str
     place_type: str
-    module_id: Optional[int]
-    occupants: List[Agent] = field(default_factory=list)
+    module_id: int | None
+    occupants: list[Agent] = field(default_factory=list)
 
 
 @dataclass
-class BaseModule(Generic[T]):
-    module_id: T
-    cells: List[Cell] = field(default_factory=list)
+class BaseModule():
+    cells: list[Cell] = field(default_factory=list)
 
     def add_cell(self, cell):
         self.cells.append(cell)
 
 
 @dataclass
-class Module(BaseModule[int]):
+class Module(BaseModule):
+    module_id: int = 0
     letter: str = ""
-    shared_places: List[SharedPlace] = field(default_factory=list)
+    shared_places: list[SharedPlace] = field(default_factory=list)
 
 
 @dataclass
-class SharedModule(BaseModule[str]):
+class SharedModule(BaseModule):
+    module_id: str = ""
     pass
 
 @dataclass
@@ -71,16 +71,16 @@ class Layout:
 
     Generates variables needed for the Places class:
       a structural `Layout` containing `Module`s and their associated `Cell`s
-      a places_id_map: Dict[int, int]
+      a places_id_map: dict[int, int]
       and place_data: ndarray
     """
     
-    places_id_map: Dict[int, int] = field(default_factory=dict)
+    places_id_map: dict[int, int] = field(default_factory=dict)
     n_places = 0
     place_data: ndarray = field(default_factory=lambda: zeros((), dtype=uint32))
-    modules: Dict[int, Module] = field(default_factory=dict)
-    shared_places: Dict[str, SharedPlace] = field(default_factory=dict)
-    shared_modules: Dict[str, SharedModule] = field(default_factory=dict)
+    modules: dict[int, Module] = field(default_factory=dict)
+    shared_places: dict[str, SharedPlace] = field(default_factory=dict)
+    shared_modules: dict[str, SharedModule] = field(default_factory=dict)
 
     def add_module(self, module: Module):
         self.modules.update({module.module_id: module})
@@ -153,11 +153,11 @@ class Layout:
                 i += 1
 
 
-def _opt_int(s: str) -> Optional[int]:
+def _opt_int(s: str) -> int | None:
     return int(s) if s != "" else None
 
 
-def _opt_str(s: str) -> Optional[str]:
+def _opt_str(s: str) -> str | None:
     return s if s != "" else None
 
 
