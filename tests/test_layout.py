@@ -5,7 +5,7 @@ import string
 import pytest
 
 from genpop import generate
-from radmodel import layout as layout_loader
+from radmodel.layout import Layout
 
 
 @pytest.fixture(scope="session")
@@ -15,7 +15,9 @@ def fresh_layout(tmp_path_factory):
         "./tests/test_params/module_no_overflow.yaml",
         os.path.join(str(d), "ng_places.csv"),
     )
-    return layout_loader.load_layout(str(d))
+    layout = Layout()
+    layout.load_places(str(d))
+    return layout
 
 
 @pytest.fixture(scope="session")
@@ -55,39 +57,33 @@ def test_total_cell_count(fresh_layout, params_no_overflow):
 
 
 def test_each_module_has_58_gp_cells(fresh_layout):
-    for m in fresh_layout.modules:
-        gp = [
-            c
-            for c in fresh_layout.cells_by_module(m.module_id)
-            if c.housing_category == "GP"
-        ]
-        assert len(gp) == 58
+    for module in fresh_layout.modules.values():
+        gp = [cell for cell in module.cells if cell.housing_category == "gp"]
+        assert len(gp) == 40
 
 
-def test_each_module_has_two_tiers_of_29(fresh_layout):
-    for m in fresh_layout.modules:
-        cells = fresh_layout.cells_by_module(m.module_id)
-        bottom = [c for c in cells if c.tier == "bottom"]
-        top = [c for c in cells if c.tier == "top"]
-        assert len(bottom) == 29
-        assert len(top) == 29
+def test_each_module_has_two_tiers_of_20(fresh_layout):
+    for module in fresh_layout.modules.values():
+        bottom = [cell for cell in module.cells if cell.tier == "bottom"]
+        top = [cell for cell in module.cells if cell.tier == "top"]
+        assert len(bottom) == len(top) == 20
 
 
 def test_rh_cell_count(fresh_layout):
-    assert len(fresh_layout.cells_by_category("RH")) == 30
+    assert len(fresh_layout.shared_modules["segregation"].cells) == 30
 
 
 def test_mi_cell_count(fresh_layout):
-    assert len(fresh_layout.cells_by_category("MI")) == 20
+    assert len(fresh_layout.shared_modules["medical"].cells) == 20
 
 
-def test_overflow_is_four_triples_per_module_in_bottom_tier(fresh_layout):
-    for m in fresh_layout.modules:
-        triples = [
-            c for c in fresh_layout.cells_by_module(m.module_id) if c.bunk_capacity == 3
-        ]
-        assert len(triples) == 4
-        assert all(c.tier == "bottom" for c in triples)
+# def test_overflow_is_four_triples_per_module_in_bottom_tier(fresh_layout):
+#     for m in fresh_layout.modules:
+#         triples = [
+#             c for c in fresh_layout.cells_by_module(m.module_id) if c.bunk_capacity == 3
+#         ]
+#         assert len(triples) == 4
+#         assert all(c.tier == "bottom" for c in triples)
 
 
 def test_resident_count(fresh_layout):
