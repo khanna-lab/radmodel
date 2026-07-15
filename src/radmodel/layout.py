@@ -52,7 +52,7 @@ class BaseModule:
             Cell(
                 place_id=int(r["place_id"]),
                 module_id=_opt_int(r["parent_id"]),
-                tier="",
+                tier=r["tier"],
                 cell_number=int(r["place_id"]),
                 housing_category=r["subtype"],
                 bunk_capacity=int(r["capacity"]),
@@ -99,7 +99,7 @@ class Layout:
 
     def add_shared_module(self, **r):
         self.shared_modules.update(
-            {r["place_id"]: SharedModule(module_id=r["place_id"])}
+            {r["subtype"]: SharedModule(module_id=r["place_id"])}
         )
 
     def add_shared_place(self, **r):
@@ -138,8 +138,10 @@ class Layout:
                 elif r["type"] == "cell":
                     if r["subtype"] == "gp":
                         self.modules[int(r["parent_id"])].add_cell(**r)
-                    else:
-                        self.shared_modules[r["parent_id"]].add_cell(**r)
+                    elif r["subtype"] == "mi":
+                        self.shared_modules["medical"].add_cell(**r)
+                    elif r["subtype"] == "rh":
+                        self.shared_modules["segregation"].add_cell(**r)
 
                 else:
                     if r["subtype"] in ["segregation", "medical"]:

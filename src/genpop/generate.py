@@ -233,7 +233,7 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
                         "name": f"cell_{letter}_{tier_name}_{n}",
                         "type": "cell",
                         "subtype": gp_cells["housing_category"].lower(),
-                        "tier": tier,
+                        "tier": tier["name"],
                         "capacity": gp_cells["default_bunk_capacity"],
                         "parent_id": parent_id,
                     }
