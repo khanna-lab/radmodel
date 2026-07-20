@@ -6,7 +6,7 @@ import random
 import yaml
 
 
-def parse_places(places_file: str | os.PathLike) -> Dict[str, int]:
+def parse_places(places_file: str | os.PathLike) -> Dict[str, List[int]]:
     places = {}
     with open(places_file) as fin:
         reader = csv.reader(fin)
@@ -136,14 +136,6 @@ def generate_schedules(num_schedules: int, output_file: str | os.PathLike):
         for i in range(num_schedules):
             acts = generate_schedule(i)
             writer.writerows(acts)
-
-
-def generate_cells(num_cells: int, output_file: str | os.PathLike):
-    with open(output_file, "w") as fout:
-        writer = csv.writer(fout)
-        writer.writerow(["place_id", "name", "type"])
-        for i in range(num_cells):
-            writer.writerow([i, f"cell_{i}", "cell"])
 
 
 def get_params(mod_def_file):

@@ -41,8 +41,8 @@ def main():
                 v = v.replace("$outdir", out_dir)
             if "$HOME" in v:
                 v = v.replace("$HOME", os.getenv("HOME"))
-            if "$JOBNAME" in v:
-                v = v.replace("$JOBNAME", os.getenv("SLURM_JOB_NAME"))
+            # if "$JOBNAME" in v:
+            #     v = v.replace("$JOBNAME", os.getenv("SLURM_JOB_NAME"))
             params[k] = v
     os.makedirs(out_dir, exist_ok=True)
     run(params, MPI.COMM_WORLD)
@@ -50,7 +50,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    # schedule_id_map, schedule_data, risks = population.create_schedules(fname)
-    # prison_layout = Layout.load_from_csv("./data")
-    # places: population.Places = population.Places(prison_layout.places_id_map, prison_layout.place_data)
-    # print(places.place_id_map)
+
