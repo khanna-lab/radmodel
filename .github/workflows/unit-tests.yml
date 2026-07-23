@@ -14,7 +14,7 @@ jobs:
         env:
           CC: mpicc
           MPICC: mpicc
-        run: pip install -r <(sed '/^[\-e|mpi4py|repast4py]/d' requirements.txt)
+        run: pip install -r requirements.txt)
       - name: Install pytest
         run: pip install pytest
       - name: Unit test with pytest
