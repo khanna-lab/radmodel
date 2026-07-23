@@ -104,7 +104,7 @@ python-json-logger==3.3.0
 pytz==2025.1
 PyYAML==6.0.2
 pyzmq==26.3.0
--e git+ssh://git@github.com/khanna-lab/radmodel.git@b075371e046f8ce18219df2a5d744f6574176a88#egg=radmodel
+# -e git+ssh://git@github.com/khanna-lab/radmodel.git@b075371e046f8ce18219df2a5d744f6574176a88#egg=radmodel
 referencing==0.36.2
 repast4py==1.1.5
 requests==2.32.3
