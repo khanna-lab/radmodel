@@ -8,12 +8,14 @@ jobs:
       - name: Set up Python for testing
         uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.13"
           cache: "pip"
       - name: Install dependencies
         env:
           CC: mpicc
           MPICC: mpicc
         run: pip install -r <(sed '/^[\-e|mpi4py|repast4py]/d' requirements.txt)
+      - name: Install pytest
+        run: pip install pytest
       - name: Unit test with pytest
         run: pytest .
