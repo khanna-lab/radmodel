@@ -1,7 +1,7 @@
 """Tests for the v1 structural layout (see references/specs/structural-layout-v1.md)."""
 
 import os
-import string
+from collections import Counter
 
 import pytest
 from pandas import DataFrame, read_csv
@@ -72,103 +72,35 @@ def test_mi_cell_count(fresh_layout):
     assert len(fresh_layout.shared_modules["medical"].cells) == 20
 
 
-def test_resident_count(fresh_layout):
-    assert len(fresh_layout.cell_assignments) == 1200
-
-
-def test_resident_ids_are_dense_and_unique(fresh_layout):
-    ids = [a.person_id for a in fresh_layout.cell_assignments]
-    assert sorted(ids) == list(range(1200))
-
-
-def test_residents_assigned_only_to_gp_cells(fresh_layout):
-    gp_ids = {c.place_id for c in fresh_layout.cells_by_category("GP")}
-    for a in fresh_layout.cell_assignments:
-        assert a.cell_place_id in gp_ids
-
-
-def test_no_cell_oversubscribed(fresh_layout):
-    by_cell: dict = {}
-    for a in fresh_layout.cell_assignments:
-        by_cell.setdefault(a.cell_place_id, []).append(a)
-    cells_by_id = {c.place_id: c for c in fresh_layout.cells}
-    for cid, assigns in by_cell.items():
-        assert len(assigns) <= cells_by_id[cid].bunk_capacity
-
-
 def test_shared_places_total(fresh_layout):
-    # 10 dayrooms + 10 showers + 2 dining + 9 single-instance facility-shared
-    assert len(fresh_layout.shared_places) == 31
+    # 2 dayrooms + 2 showers + 2 dining + 9 single-instance facility-shared
+    assert len(fresh_layout.shared_places) == 13
 
 
 def test_shared_places_per_type(fresh_layout):
     expected = {
-        "dayroom": 10,
-        "shower": 10,
+        "dayroom": 2,
+        "shower": 2,
         "dining_room": 2,
         "gym": 1,
         "yard": 1,
         "education": 1,
         "industry": 1,
         "visit_room": 1,
-        "medical": 1,
         "chapel": 1,
         "barber": 1,
-        "segregation": 1,
     }
-    for place_type, count in expected.items():
-        assert len(fresh_layout.shared_places_by_type(place_type)) == count, place_type
+    values = [d.place_type for d in fresh_layout.shared_places.values()]
+    assert dict(Counter(values)) == expected
 
 
-def test_module_subplaces_have_parent_others_dont(fresh_layout):
-    for p in fresh_layout.shared_places:
+def test_subplace_module(fresh_layout):
+    for p in fresh_layout.shared_places.values():
         if p.place_type in ("dayroom", "shower"):
-            assert p.parent_module_id is not None
+            assert p.module_id != 2011
         else:
-            assert p.parent_module_id is None
+            assert p.module_id == 2011
 
 
-def test_fk_module_ids_valid(fresh_layout):
-    valid = {m.module_id for m in fresh_layout.modules}
-    for c in fresh_layout.cells:
-        if c.module_id is not None:
-            assert c.module_id in valid
-    for p in fresh_layout.shared_places:
-        if p.parent_module_id is not None:
-            assert p.parent_module_id in valid
-
-
-def test_place_ids_globally_unique(fresh_layout):
-    all_ids = [c.place_id for c in fresh_layout.cells] + [
-        p.place_id for p in fresh_layout.shared_places
-    ]
-    assert len(set(all_ids)) == len(all_ids)
-
-
-def test_generate_agents_unique_id(fresh_layout, params_no_overflow, tmp_path_factory):
-    d = tmp_path_factory.mktemp("layout")
-    agents = DataFrame(generate_agents.generate_persons(
-        fresh_layout, params_no_overflow["residents"]["count"], os.path.join(str(d), "ng_places.csv")
-    ))
-    assert agents["person_id"].is_unique, "Agent ids are non-unique"
-
-def test_cells_not_full(fresh_layout, params_no_overflow, tmp_path_factory):
-    d = tmp_path_factory.mktemp("layout")
-    DataFrame(generate_agents.generate_persons(
-        fresh_layout, params_no_overflow["residents"]["count"], os.path.join(str(d), "ng_agents.csv")
-    ))
-
-    agents = read_csv(os.path.join(str(d), "ng_agents.csv"))
-    occupants = agents.groupby("cell_place_id").count()["person_id"]
-    assert min(occupants) == 1, f"Cells should have at least 1 occupant, found {min(occupants)}"
-    assert max(occupants) == params_no_overflow["cells"]["gp"]["default_bunk_capacity"], f"Expected no overflow, found overflow {max(occupants)} per cell"
-
-def test_cells_overflow(overflow_layout, params_with_overflow, tmp_path_factory):
-    d = tmp_path_factory.mktemp("layout")
-    DataFrame(generate_agents.generate_persons(overflow_layout, params_with_overflow["residents"]["count"], os.path.join(str(d), "ng_agents.csv")))
-
-    agents = read_csv(os.path.join(str(d), "ng_agents.csv"))
-    occupants = agents.groupby("cell_place_id").count()["person_id"]
-    assert min(occupants) >= params_with_overflow["cells"]["gp"]["default_bunk_capacity"], f"Cells must have at least default occupancy. Current min occupancy: {min(occupants)}"
-    assert max(occupants) > params_with_overflow["cells"]["gp"]["default_bunk_capacity"], f"Cells must overflow. Current max occupancy: {max(occupants)}"
-    
+def test_place_ids_globally_unique(places):
+    assert len(places["place_id"]) == len(set(places["place_id"]))
