@@ -8,21 +8,21 @@ def cli():
     pass
 
 
-@cli.command("create_cells")
-@click.option(
-    "-n",
-    "--num-cells",
-    type=click.INT,
-    help="The number of persons to create",
-    required=True,
-)
-@click.option(
-    "-o",
-    "--output_file",
-    type=click.Path(),
-    help="Path to write the cells to",
-    required=True,
-)
+# @cli.command("create_cells")
+# @click.option(
+#     "-n",
+#     "--num-cells",
+#     type=click.INT,
+#     help="The number of persons to create",
+#     required=True,
+# )
+# @click.option(
+#     "-o",
+#     "--output_file",
+#     type=click.Path(),
+#     help="Path to write the cells to",
+#     required=True,
+# )
 @cli.command("create_persons")
 @click.option(
     "-n",
