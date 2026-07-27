@@ -17,6 +17,6 @@ jobs:
         env:
           CC: mpich
           MPICC: mpich
-        run: uv sync --locked
+        run: uv sync
       - name: Unit test with pytest
         run: uv run pytest .
