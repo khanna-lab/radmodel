@@ -57,6 +57,8 @@ def generate_persons(
                     "morning_act_name": morning_activity.name,
                     "afternoon_act_name": afternoon_activity.name,
                     "evening_act_name": evening_activity.name,
+                    "schedule_id": schedule_id,
+                    "cafeteria": cafeteria,
                 }
             )
             agent_id += 1
@@ -75,6 +77,8 @@ def generate_persons(
                 "morning_act_name",
                 "afternoon_act_name",
                 "evening_act_name",
+                "schedule_id",
+                "cafeteria",
             ],
         )
         writer.writeheader()
