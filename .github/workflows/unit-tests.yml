@@ -10,7 +10,7 @@ jobs:
       - name: Set up Python for testing
         uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.13"
       - name: Install dependencies
         env:
           CC: mpicc
