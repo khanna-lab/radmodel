@@ -21,6 +21,16 @@ def fresh_layout(tmp_path_factory):
     layout.load_places(str(d))
     return layout
 
+@pytest.fixture(scope="session")
+def overflow_layout(tmp_path_factory):
+    d = tmp_path_factory.mktemp("layout")
+    generate_layout.generate_places(
+        "./tests/test_params/module_with_overflow.yaml",
+        os.path.join(str(d), "ng_places.csv"),
+    )
+    layout = Layout()
+    layout.load_places(str(d))
+    return layout
 
 @pytest.fixture(scope="session")
 def params_no_overflow():
@@ -28,6 +38,11 @@ def params_no_overflow():
         "facility"
     ]
 
+@pytest.fixture(scope="session")
+def params_with_overflow():
+    return generate_layout.get_params("./tests/test_params/module_with_overflow.yaml")[
+        "facility"
+    ]
 
 def test_module_count(fresh_layout, params_no_overflow):
     assert len(fresh_layout.modules) == params_no_overflow["modules"]["count"]
@@ -162,10 +177,20 @@ def test_generate_agents_unique_id(fresh_layout, params_no_overflow, tmp_path_fa
 def test_cells_not_full(fresh_layout, params_no_overflow, tmp_path_factory):
     d = tmp_path_factory.mktemp("layout")
     DataFrame(generate_agents.generate_persons(
-        fresh_layout, params_no_overflow["residents"]["count"], os.path.join(str(d), "ng_places.csv")
+        fresh_layout, params_no_overflow["residents"]["count"], os.path.join(str(d), "ng_agents.csv")
     ))
 
-    agents = read_csv(os.path.join(str(d), "ng_places.csv"))
+    agents = read_csv(os.path.join(str(d), "ng_agents.csv"))
     occupants = agents.groupby("cell_place_id").count()["person_id"]
     assert min(occupants) == 1, f"Cells should have at least 1 occupant, found {min(occupants)}"
     assert max(occupants) == params_no_overflow["cells"]["gp"]["default_bunk_capacity"], f"Expected no overflow, found overflow {max(occupants)} per cell"
+
+def test_cells_overflow(overflow_layout, params_with_overflow, tmp_path_factory):
+    d = tmp_path_factory.mktemp("layout")
+    DataFrame(generate_agents.generate_persons(overflow_layout, params_with_overflow["residents"]["count"], os.path.join(str(d), "ng_agents.csv")))
+
+    agents = read_csv(os.path.join(str(d), "ng_agents.csv"))
+    occupants = agents.groupby("cell_place_id").count()["person_id"]
+    assert min(occupants) >= params_with_overflow["cells"]["gp"]["default_bunk_capacity"], f"Cells must have at least default occupancy. Current min occupancy: {min(occupants)}"
+    assert max(occupants) > params_with_overflow["cells"]["gp"]["default_bunk_capacity"], f"Cells must overflow. Current max occupancy: {max(occupants)}"
+    
