@@ -1,6 +1,8 @@
 # Added by hand
 references/*
 !references/specs/
+data/*
+output/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
