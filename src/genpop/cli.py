@@ -1,5 +1,6 @@
 import click
-import generate
+import genpop.generate_layout as generate_layout
+import genpop.generate_agents as generate_agents
 
 
 @click.group(context_settings=dict(help_option_names=["-h", "--help"]))
@@ -58,7 +59,7 @@ def cli():
 #     required=True
 # )
 def create_persons(num_persons: int, places_file, module_definition_file, output_file):
-    generate.generate_persons(
+    generate_agents.generate_persons(
         num_persons, places_file, module_definition_file, output_file
     )
 
@@ -79,7 +80,7 @@ def create_persons(num_persons: int, places_file, module_definition_file, output
     required=True,
 )
 def create_schedules(num_schedules: int, output_file):
-    generate.generate_schedules(num_schedules, output_file)
+    generate_agents.generate_schedules(num_schedules, output_file)
 
 
 @cli.command("create_places")
@@ -98,7 +99,7 @@ def create_schedules(num_schedules: int, output_file):
     required=True,
 )
 def create_places(module_definition_file, output_file):
-    generate.generate_places(module_definition_file, output_file)
+    generate_layout.generate_places(module_definition_file, output_file)
 
 
 if __name__ == "__main__":

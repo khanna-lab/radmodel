@@ -20,6 +20,9 @@ class Agent:
     person_id: int
     module_id: int
     cell_place_id: int
+    morning_act_name: str
+    afternoon_act_name: str
+    evening_act_name: str
 
 
 @dataclass
@@ -66,6 +69,28 @@ class Module(BaseModule):
     module_id: int = 0
     letter: str = ""
     shared_places: list[SharedPlace] = field(default_factory=list)
+    showers: list[SharedPlace] = field(default_factory=list)
+    dayrooms: list[SharedPlace] = field(default_factory=list)
+
+    def add_shared_place(self, **r):
+        if r["subtype"] == "shower":
+            self.showers.append(
+                SharedPlace(
+                    place_id=int(r["place_id"]),
+                    name=r["name"],
+                    place_type=r["subtype"],
+                    module_id=_opt_int(r["parent_id"]),
+                )
+            )
+        elif r["subtype"] == "dayroom":
+            self.dayrooms.append(
+                SharedPlace(
+                    place_id=int(r["place_id"]),
+                    name=r["name"],
+                    place_type=r["subtype"],
+                    module_id=_opt_int(r["parent_id"]),
+                )
+            )
 
 
 @dataclass
@@ -89,7 +114,9 @@ class Layout:
     place_data: ndarray = field(default_factory=lambda: zeros((), dtype=uint32))
     modules: dict[int, Module] = field(default_factory=dict)
     shared_places: dict[str, SharedPlace] = field(default_factory=dict)
+    cafeterias: dict[str, SharedPlace] = field(default_factory=dict)
     shared_modules: dict[str, SharedModule] = field(default_factory=dict)
+    gp_count = 0
 
     def add_module(self, **r):
         letter = string.ascii_uppercase[int(r["place_id"]) - 2012]
@@ -104,6 +131,18 @@ class Layout:
 
     def add_shared_place(self, **r):
         self.shared_places.update(
+            {
+                r["name"]: SharedPlace(
+                    place_id=int(r["place_id"]),
+                    name=r["name"],
+                    place_type=r["subtype"],
+                    module_id=_opt_int(r["parent_id"]),
+                )
+            }
+        )
+
+    def add_cafeterias(self, **r):
+        self.cafeterias.update(
             {
                 r["name"]: SharedPlace(
                     place_id=int(r["place_id"]),
@@ -133,11 +172,14 @@ class Layout:
                 self.places_id_map[n_id] = i
                 self.place_data[i, 0] = n_id
                 # TODO this should probably have some sort of mapping for the functions instead of an if
+                if r["type"] == "facility":
+                    continue
                 if r["type"] == "module":
                     self.add_module(**r)
                 elif r["type"] == "cell":
                     if r["subtype"] == "gp":
                         self.modules[int(r["parent_id"])].add_cell(**r)
+                        self.gp_count += 1
                     elif r["subtype"] == "mi":
                         self.shared_modules["medical"].add_cell(**r)
                     elif r["subtype"] == "rh":
@@ -146,6 +188,10 @@ class Layout:
                 else:
                     if r["subtype"] in ["segregation", "medical"]:
                         self.add_shared_module(**r)
+                    elif r["subtype"] == "dining_room":
+                        self.add_cafeterias(**r)
+                    elif r["subtype"] in ["shower", "dayroom"]:
+                        self.modules[int(r["parent_id"])].add_shared_place(**r)
                     else:
                         self.add_shared_place(**r)
                 i += 1
