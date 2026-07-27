@@ -15,8 +15,8 @@ jobs:
           version: 0.9.25
       - name: Install dependencies
         env:
-          CC: mpicc
-          MPICC: mpicc
-        run: uv sync
+          CC: mpich
+          MPICC: mpich
+        run: uv sync --locked
       - name: Unit test with pytest
         run: uv run pytest .
