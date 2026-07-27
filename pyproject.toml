@@ -9,7 +9,6 @@ authors = [
     { name = "Sam Bessey", email="sam_bessey@brown.edu" }
 ]
 dependencies = [
-    "mpich",
     "repast4py",
     "pytest",
     "click>=8.4.2",
