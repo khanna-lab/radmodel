@@ -5,11 +5,14 @@ version = "0.0.1a"
 authors = [
     { name = "Nick Collier", email = "ncollier@anl.gov"    },
     { name = "Aditya Khanna",    email = "aditya_khanna@brown.edu" },
-    { name = "Jonathan Ozik",    email = "jozik@anl.gov" }
+    { name = "Jonathan Ozik",    email = "jozik@anl.gov" },
+    { name = "Sam Bessey", email="sam_bessey@brown.edu" }
 ]
 dependencies = [
+    "mpich",
     "repast4py",
-    "pytest"
+    "pytest",
+    "pandas>=3.0.5",
 ]
 
 [project.optional-dependencies]
