@@ -2,16 +2,18 @@
 
 import os
 import string
+from pandas import DataFrame, read_csv
 import pytest
 
-from genpop import generate
+from genpop import generate_layout
+from genpop import generate_agents
 from radmodel.layout import Layout
 
 
 @pytest.fixture(scope="session")
 def fresh_layout(tmp_path_factory):
     d = tmp_path_factory.mktemp("layout")
-    generate.generate_places(
+    generate_layout.generate_places(
         "./tests/test_params/module_no_overflow.yaml",
         os.path.join(str(d), "ng_places.csv"),
     )
@@ -22,7 +24,7 @@ def fresh_layout(tmp_path_factory):
 
 @pytest.fixture(scope="session")
 def params_no_overflow():
-    return generate.get_params("./tests/test_params/module_no_overflow.yaml")[
+    return generate_layout.get_params("./tests/test_params/module_no_overflow.yaml")[
         "facility"
     ]
 
@@ -56,7 +58,7 @@ def test_total_cell_count(fresh_layout, params_no_overflow):
     )
 
 
-def test_each_module_has_58_gp_cells(fresh_layout):
+def test_each_module_has_40_gp_cells(fresh_layout):
     for module in fresh_layout.modules.values():
         gp = [cell for cell in module.cells if cell.housing_category == "gp"]
         assert len(gp) == 40
@@ -75,15 +77,6 @@ def test_rh_cell_count(fresh_layout):
 
 def test_mi_cell_count(fresh_layout):
     assert len(fresh_layout.shared_modules["medical"].cells) == 20
-
-
-# def test_overflow_is_four_triples_per_module_in_bottom_tier(fresh_layout):
-#     for m in fresh_layout.modules:
-#         triples = [
-#             c for c in fresh_layout.cells_by_module(m.module_id) if c.bunk_capacity == 3
-#         ]
-#         assert len(triples) == 4
-#         assert all(c.tier == "bottom" for c in triples)
 
 
 def test_resident_count(fresh_layout):
@@ -157,3 +150,22 @@ def test_place_ids_globally_unique(fresh_layout):
         p.place_id for p in fresh_layout.shared_places
     ]
     assert len(set(all_ids)) == len(all_ids)
+
+
+def test_generate_agents_unique_id(fresh_layout, params_no_overflow, tmp_path_factory):
+    d = tmp_path_factory.mktemp("layout")
+    agents = DataFrame(generate_agents.generate_persons(
+        fresh_layout, params_no_overflow["residents"]["count"], os.path.join(str(d), "ng_places.csv")
+    ))
+    assert agents["person_id"].is_unique, "Agent ids are non-unique"
+
+def test_cells_not_full(fresh_layout, params_no_overflow, tmp_path_factory):
+    d = tmp_path_factory.mktemp("layout")
+    DataFrame(generate_agents.generate_persons(
+        fresh_layout, params_no_overflow["residents"]["count"], os.path.join(str(d), "ng_places.csv")
+    ))
+
+    agents = read_csv(os.path.join(str(d), "ng_places.csv"))
+    occupants = agents.groupby("cell_place_id").count()["person_id"]
+    assert min(occupants) == 1, f"Cells should have at least 1 occupant, found {min(occupants)}"
+    assert max(occupants) == params_no_overflow["cells"]["gp"]["default_bunk_capacity"], f"Expected no overflow, found overflow {max(occupants)} per cell"

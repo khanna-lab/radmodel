@@ -18,16 +18,18 @@ def parse_schedule_ids(schedules_file: str | os.PathLike) -> List[int]:
     return ids
 
 
+def get_layout(places_file):
+    layout = Layout()
+    layout.load_places(places_file)
+
+
 def generate_persons(
+    layout: Layout,
     num_persons: int,
-    places_file: str | os.PathLike,
-    mod_def_file: str | os.PathLike,
     output_file: str | os.PathLike,
 ):
     print("Warning: Using Single Schedule 0")
 
-    layout = Layout()
-    layout.load_places(places_file)
     n_mods = len(layout.modules)
     agents_per_module = num_persons // n_mods
     agent_id = 0
@@ -35,8 +37,6 @@ def generate_persons(
     agents = []
 
     for module_id, module in layout.modules.items():
-        print(len(module.cells))
-        print(agents_per_module)
         # TODO too few values to ensure even distribution, this should be redone
         cafeteria = random.choice(
             list(layout.cafeterias.values())
@@ -65,7 +65,6 @@ def generate_persons(
             cell_idx += 1
             if cell_idx == len(module.cells):
                 cell_idx = 0
-        break
 
     with open(output_file, "w") as f:
         writer = csv.DictWriter(
@@ -84,6 +83,7 @@ def generate_persons(
         writer.writeheader()
         for i in agents:
             writer.writerow(i)
+    return agents
 
 
 def generate_schedule(schedule_id: int):
@@ -124,7 +124,8 @@ def generate_schedules(num_schedules: int, output_file: str | os.PathLike):
             writer.writerows(acts)
 
 
-if __name__ == "__main__":
-    generate_persons(
-        1500, "data", "params/module_definition.yaml", "data/test_generate_persons.csv"
-    )
+# if __name__ == "__main__":
+#     layout = get_layout("data")
+# generate_persons(
+#     1500, "data", "data/test_generate_persons.csv"
+# )
