@@ -6,9 +6,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Setup MPI
-        uses: mpi4py/setup-mpi@v1
-        with:
-            mpi: mpich
+        run: sudo apt-get install libopenmpi-dev
       - name: Install uv
         uses: astral-sh/setup-uv@v8.1.0
         with:
