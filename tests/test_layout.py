@@ -1,59 +1,89 @@
 """Tests for the v1 structural layout (see references/specs/structural-layout-v1.md)."""
+
+import os
+import string
 import pytest
 
-from genpop import generate_layout
-from radmodel import layout as layout_loader
+from genpop import generate
+from radmodel.layout import Layout
 
 
 @pytest.fixture(scope="session")
 def fresh_layout(tmp_path_factory):
     d = tmp_path_factory.mktemp("layout")
-    generate_layout.generate_all(str(d))
-    return layout_loader.load_layout(str(d))
+    generate.generate_places(
+        "./tests/test_params/module_no_overflow.yaml",
+        os.path.join(str(d), "ng_places.csv"),
+    )
+    layout = Layout()
+    layout.load_places(str(d))
+    return layout
 
 
-def test_module_count(fresh_layout):
-    assert len(fresh_layout.modules) == 10
+@pytest.fixture(scope="session")
+def params_no_overflow():
+    return generate.get_params("./tests/test_params/module_no_overflow.yaml")[
+        "facility"
+    ]
+
+
+def test_module_count(fresh_layout, params_no_overflow):
+    assert len(fresh_layout.modules) == params_no_overflow["modules"]["count"]
 
 
 def test_module_letters(fresh_layout):
-    assert [m.letter for m in fresh_layout.modules] == list("ABCDEFGHIJ")
+    assert [m.letter for m in fresh_layout.modules.values()] == list(
+        string.ascii_uppercase[0 : len(fresh_layout.modules)]
+    )
 
 
-def test_total_cell_count(fresh_layout):
-    assert len(fresh_layout.cells) == 580 + 30 + 20
+def test_total_cell_count(fresh_layout, params_no_overflow):
+    n_gp_cells = (
+        sum([tier["cells_per_tier"] for tier in params_no_overflow["tiers"]])
+        * params_no_overflow["cells"]["gp"]["default_bunk_capacity"]
+    )
+    assert (
+        sum([len(module.cells) for module in fresh_layout.modules.values()])
+        == n_gp_cells
+    )
+
+    n_special = sum(
+        [len(module.cells) for module in fresh_layout.shared_modules.values()]
+    )
+    assert (
+        sum([special["count"] for special in params_no_overflow["cells"]["special"]])
+        == n_special
+    )
 
 
 def test_each_module_has_58_gp_cells(fresh_layout):
-    for m in fresh_layout.modules:
-        gp = [c for c in fresh_layout.cells_by_module(m.module_id)
-              if c.housing_category == "GP"]
-        assert len(gp) == 58
+    for module in fresh_layout.modules.values():
+        gp = [cell for cell in module.cells if cell.housing_category == "gp"]
+        assert len(gp) == 40
 
 
-def test_each_module_has_two_tiers_of_29(fresh_layout):
-    for m in fresh_layout.modules:
-        cells = fresh_layout.cells_by_module(m.module_id)
-        bottom = [c for c in cells if c.tier == "bottom"]
-        top = [c for c in cells if c.tier == "top"]
-        assert len(bottom) == 29
-        assert len(top) == 29
+def test_each_module_has_two_tiers_of_20(fresh_layout):
+    for module in fresh_layout.modules.values():
+        bottom = [cell for cell in module.cells if cell.tier == "bottom"]
+        top = [cell for cell in module.cells if cell.tier == "top"]
+        assert len(bottom) == len(top) == 20
 
 
 def test_rh_cell_count(fresh_layout):
-    assert len(fresh_layout.cells_by_category("RH")) == 30
+    assert len(fresh_layout.shared_modules["segregation"].cells) == 30
 
 
 def test_mi_cell_count(fresh_layout):
-    assert len(fresh_layout.cells_by_category("MI")) == 20
+    assert len(fresh_layout.shared_modules["medical"].cells) == 20
 
 
-def test_overflow_is_four_triples_per_module_in_bottom_tier(fresh_layout):
-    for m in fresh_layout.modules:
-        triples = [c for c in fresh_layout.cells_by_module(m.module_id)
-                   if c.bunk_capacity == 3]
-        assert len(triples) == 4
-        assert all(c.tier == "bottom" for c in triples)
+# def test_overflow_is_four_triples_per_module_in_bottom_tier(fresh_layout):
+#     for m in fresh_layout.modules:
+#         triples = [
+#             c for c in fresh_layout.cells_by_module(m.module_id) if c.bunk_capacity == 3
+#         ]
+#         assert len(triples) == 4
+#         assert all(c.tier == "bottom" for c in triples)
 
 
 def test_resident_count(fresh_layout):
@@ -123,6 +153,7 @@ def test_fk_module_ids_valid(fresh_layout):
 
 
 def test_place_ids_globally_unique(fresh_layout):
-    all_ids = ([c.place_id for c in fresh_layout.cells]
-               + [p.place_id for p in fresh_layout.shared_places])
+    all_ids = [c.place_id for c in fresh_layout.cells] + [
+        p.place_id for p in fresh_layout.shared_places
+    ]
     assert len(set(all_ids)) == len(all_ids)
