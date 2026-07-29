@@ -1,15 +1,13 @@
-from typing import Dict
 import os
 
 from mpi4py import MPI
 from repast4py.parameters import create_args_parser, init_params
 
-from . import population
-from . import core
+from . import core, population
 from .layout import Layout
 
 
-def run(params: Dict, comm):
+def run(params: dict, comm):
     fname = params["schedule_file"]
     schedule_id_map, schedule_data, risks = population.create_schedules(fname)
     fname = params["places_file"]

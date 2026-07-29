@@ -76,8 +76,7 @@ class CountsByPlaceLogger:
 
     def log_counts(self, tick, places):
         with open(self.log_fname, "a") as fin:
-            for idx, vals in enumerate(places.get_all_counts()):
-                fin.write(f"{tick},{self.reverse_map[idx]},{vals[0]},{vals[1]}\n")
+            fin.writelines(f"{tick},{self.reverse_map[idx]},{vals[0]},{vals[1]}\n" for idx, vals in enumerate(places.get_all_counts()))
 
 
 class Model:

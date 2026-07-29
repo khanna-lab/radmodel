@@ -2,11 +2,11 @@
 
 import os
 import string
-from pandas import DataFrame, read_csv
-import pytest
 
-from genpop import generate_layout
-from genpop import generate_agents
+import pytest
+from pandas import DataFrame, read_csv
+
+from genpop import generate_agents, generate_layout
 from radmodel.layout import Layout
 
 

@@ -1,7 +1,7 @@
 import csv
 import os
 import string
-from typing import Dict, List
+
 import yaml
 
 
@@ -65,7 +65,7 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
             }
         )
 
-    special_parent_ids: Dict[str, int] = {}
+    special_parent_ids: dict[str, int] = {}
 
     for place in shared_places:
         rows.append(
