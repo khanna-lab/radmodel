@@ -1,6 +1,6 @@
 import click
-import genpop.generate_layout as generate_layout
-import genpop.generate_agents as generate_agents
+
+from genpop import generate_agents, generate_layout
 
 
 @click.group(context_settings=dict(help_option_names=["-h", "--help"]))

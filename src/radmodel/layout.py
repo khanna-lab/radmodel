@@ -7,10 +7,11 @@ is descriptive metadata for future schedule/movement work.
 
 import csv
 import os
-from dataclasses import dataclass, field
 import string
-from numpy import uint32, zeros, ndarray
+from dataclasses import dataclass, field
 from typing import TypeVar
+
+from numpy import ndarray, uint32, zeros
 
 T = TypeVar("T")
 
@@ -96,7 +97,6 @@ class Module(BaseModule):
 @dataclass
 class SharedModule(BaseModule):
     module_id: str = ""
-    pass
 
 
 @dataclass

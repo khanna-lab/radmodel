@@ -1,14 +1,11 @@
 import csv
 import os
 import random
-from typing import List
-from pandas import concat
 
-import yaml
-from radmodel.layout import Agent, Layout
+from radmodel.layout import Layout
 
 
-def parse_schedule_ids(schedules_file: str | os.PathLike) -> List[int]:
+def parse_schedule_ids(schedules_file: str | os.PathLike) -> list[int]:
     with open(schedules_file) as fin:
         reader = csv.reader(fin)
         header = next(reader)
@@ -122,10 +119,3 @@ def generate_schedules(num_schedules: int, output_file: str | os.PathLike):
         for i in range(num_schedules):
             acts = generate_schedule(i)
             writer.writerows(acts)
-
-
-# if __name__ == "__main__":
-#     layout = get_layout("data")
-# generate_persons(
-#     1500, "data", "data/test_generate_persons.csv"
-# )
