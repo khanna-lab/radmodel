@@ -18,15 +18,17 @@ def parse_schedule_ids(schedules_file: str | os.PathLike) -> list[int]:
 def get_layout(places_file):
     layout = Layout()
     layout.load_places(places_file)
+    return layout
 
 
 def generate_persons(
-    layout: Layout,
     num_persons: int,
+    places_file: str | os.PathLike,
     output_file: str | os.PathLike,
 ):
     print("Warning: Using Single Schedule 0")
 
+    layout = get_layout(places_file)
     n_mods = len(layout.modules)
     agents_per_module = num_persons // n_mods
     agent_id = 0
