@@ -52,15 +52,9 @@ def cli():
     help="Path to create the created persons to",
     required=True,
 )
-# @click.option(
-#     "--ppc",
-#     type=click.INT,
-#     help="Number of persons to assign to each cell",
-#     required=True
-# )
-def create_persons(num_persons: int, places_file, module_definition_file, output_file):
+def create_persons(num_persons: int, places_file, output_file):
     generate_agents.generate_persons(
-        num_persons, places_file, module_definition_file, output_file
+        num_persons, places_file, output_file
     )
 
 
