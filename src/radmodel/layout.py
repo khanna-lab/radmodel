@@ -9,10 +9,13 @@ import csv
 import os
 from dataclasses import dataclass, field
 import string
-from numpy import uint32, zeros, ndarray
+from numpy import uint32, zeros, ndarray, ix_
 from typing import TypeVar
 
 T = TypeVar("T")
+
+PL_PERSON_COUNT_IDX = 1
+PL_INFECTED_COUNT_IDX = 2
 
 
 @dataclass
@@ -157,6 +160,59 @@ class Layout:
         layout.load_places(data_dir)
         return layout
 
+    def update_counts(self, places: ndarray, counts: ndarray):
+        """Update the counts of agents in the specified places.
+
+        Parameters
+        ==========
+        places: np.ndarray
+            Array of place indices to update.
+        counts: np.ndarray
+            Array of counts corresponding to the places.
+        """
+        self.place_data[:, PL_PERSON_COUNT_IDX:] = 0
+        self.place_data[places, PL_PERSON_COUNT_IDX] = counts
+
+    def update_infected_counts(self, places: ndarray, counts: ndarray):
+        """Update the counts of infected agents in the specified places.
+
+        Parameters
+        ==========
+        places: np.ndarray
+            Array of place indices to update
+        counts: np.ndarray
+            Array of counts corresponding to the places
+        """
+        self.place_data[:, PL_INFECTED_COUNT_IDX:] = 0
+        self.place_data[places, PL_INFECTED_COUNT_IDX] = counts
+
+    def get_counts(self, places_idxs: ndarray):
+        """Get the counts of agents and infected agents for the specified places.
+        Parameters
+        ==========
+        place_idxs: np.ndarray
+            Array of place indices to retrieve counts for
+
+        Returns
+        =======
+        np.ndarray
+            Array of shape (len(place_idxs), 2) containing counts of persons and infected persons.
+        """
+
+        return self.place_data[
+            #TODO review why this is causing a lint error, works if you make the latter two an array
+            ix_(places_idxs, (PL_PERSON_COUNT_IDX, PL_INFECTED_COUNT_IDX))
+        ]
+
+    def get_all_counts(self):
+        """Get the counts of persons and infected persons for all places.
+        
+        Returns
+        =======
+        np.ndarray
+            Array of shape (n_places, 2) containing counts of persons and infected persons.
+        """
+        return self.place_data[:, (PL_PERSON_COUNT_IDX, PL_INFECTED_COUNT_IDX)]
 
 def _opt_int(s: str) -> int | None:
     return int(s) if s != "" else None
