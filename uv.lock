@@ -1072,7 +1072,6 @@ source = { editable = "." }
 dependencies = [
     { name = "mpi4py" },
     { name = "pandas" },
-    { name = "pytest" },
     { name = "repast4py" },
 ]
 
@@ -1087,6 +1086,11 @@ docs = [
     { name = "mkdocstrings", extra = ["python"] },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "mike", marker = "extra == 'docs'" },
@@ -1095,11 +1099,13 @@ requires-dist = [
     { name = "mpi4py" },
     { name = "pandas", specifier = ">=3.0.5" },
     { name = "pre-commit", marker = "extra == 'dev'" },
-    { name = "pytest" },
     { name = "repast4py" },
     { name = "tox", marker = "extra == 'dev'" },
 ]
 provides-extras = ["dev", "docs"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.1.1" }]
 
 [[package]]
 name = "repast4py"

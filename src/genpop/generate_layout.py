@@ -1,30 +1,12 @@
 import csv
 import os
 import string
-from typing import Dict, List
 import random
 import yaml
+from typing import Any
 
 
-def parse_places(places_file: str | os.PathLike) -> Dict[str, List[int]]:
-    places = {}
-    with open(places_file) as fin:
-        reader = csv.reader(fin)
-        header = next(reader)
-        id_idx = header.index("place_id")
-        type_idx = header.index("type")
-        for row in reader:
-            id = int(row[id_idx])
-            p_type = row[type_idx]
-            if p_type in places:
-                places[p_type].append(id)
-            else:
-                places[p_type] = [id]
-
-        return places
-
-
-def parse_schedule_ids(schedules_file: str | os.PathLike) -> List[int]:
+def parse_schedule_ids(schedules_file: str | os.PathLike) -> list[int]:
     with open(schedules_file) as fin:
         reader = csv.reader(fin)
         header = next(reader)
@@ -34,70 +16,70 @@ def parse_schedule_ids(schedules_file: str | os.PathLike) -> List[int]:
     return ids
 
 
-def generate_persons(
-    num_persons: int,
-    places_file: str | os.PathLike,
-    mod_def_file: str | os.PathLike,
-    output_file: str | os.PathLike,
-):
-    print("Warning: Using Single Schedule 0")
+# def generate_persons(
+#     num_persons: int,
+#     places_file: str | os.PathLike,
+#     mod_def_file: str | os.PathLike,
+#     output_file: str | os.PathLike,
+# ):
+#     print("Warning: Using Single Schedule 0")
 
-    places = parse_places(places_file)
-    n_cells = len(places["cell"])
+#     places = parse_places(places_file)
+#     n_cells = len(places["cell"])
 
-    with open(mod_def_file) as fin:
-        mod_def = yaml.safe_load(fin)
-    n_mods = len(mod_def)
+#     with open(mod_def_file) as fin:
+#         mod_def = yaml.safe_load(fin)
+#     n_mods = len(mod_def)
 
-    cell_idx = 0
-    mod_idx = 0
-    mod_acts = mod_def[mod_idx]
+#     cell_idx = 0
+#     mod_idx = 0
+#     mod_acts = mod_def[mod_idx]
 
-    # Round robin assignment of persons to cells, and within
-    # than round robin assignment of mods
-    with open(output_file, "w") as fout:
-        writer = csv.writer(fout)
-        writer.writerow(
-            [
-                "person_id",
-                "schedule_id",
-                "cell",
-                "cafeteria",
-                "morning_act",
-                "noon_act",
-                "evening_act",
-                "mod",
-            ]
-        )
-        for i in range(num_persons):
-            cell_id = places["cell"][cell_idx]
-            schedule_id = 0
-            cafeteria = random.choice(places["cafeteria"])
-            morning_act = random.choice(places[mod_acts[0]])
-            afternoon_act = random.choice(places[mod_acts[1]])
-            evening_act = random.choice(places[mod_acts[2]])
+#     # Round robin assignment of persons to cells, and within
+#     # than round robin assignment of mods
+#     with open(output_file, "w") as fout:
+#         writer = csv.writer(fout)
+#         writer.writerow(
+#             [
+#                 "person_id",
+#                 "schedule_id",
+#                 "cell",
+#                 "cafeteria",
+#                 "morning_act",
+#                 "noon_act",
+#                 "evening_act",
+#                 "mod",
+#             ]
+#         )
+#         for i in range(num_persons):
+#             cell_id = places["cell"][cell_idx]
+#             schedule_id = 0
+#             cafeteria = random.choice(places["cafeteria"])
+#             morning_act = random.choice(places[mod_acts[0]])
+#             afternoon_act = random.choice(places[mod_acts[1]])
+#             evening_act = random.choice(places[mod_acts[2]])
 
-            writer.writerow(
-                [
-                    i,
-                    schedule_id,
-                    cell_id,
-                    cafeteria,
-                    morning_act,
-                    afternoon_act,
-                    evening_act,
-                    mod_idx,
-                ]
-            )
+#             writer.writerow(
+#                 [
+#                     i,
+#                     schedule_id,
+#                     cell_id,
+#                     cafeteria,
+#                     morning_act,
+#                     afternoon_act,
+#                     evening_act,
+#                     mod_idx,
+#                 ]
+#             )
 
-            mod_idx += 1
-            if mod_idx == n_mods:
-                mod_idx = 0
-            mod_acts = mod_def[mod_idx]
+#             mod_idx += 1
+#             if mod_idx == n_mods:
+#                 mod_idx = 0
+#             mod_acts = mod_def[mod_idx]
 
-            cell_idx += 1
-            if cell_idx == n_cells:
-                cell_idx = 0
+#             cell_idx += 1
+#             if cell_idx == n_cells:
+#                 cell_idx = 0
 
 
 def generate_schedule(schedule_id: int):
@@ -138,7 +120,7 @@ def generate_schedules(num_schedules: int, output_file: str | os.PathLike):
             writer.writerows(acts)
 
 
-def get_params(mod_def_file):
+def get_params(mod_def_file: str | os.PathLike) -> dict[str, Any]:
     with open(mod_def_file) as fin:
         return yaml.safe_load(fin)
 
@@ -158,6 +140,7 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
     data = get_params(mod_def_file)
 
     module = data.get("facility")
+    assert module is not None
     module_name = module["name"]
     n_modules = module["modules"]["count"]
     module_letters = [string.ascii_uppercase[i] for i in range(n_modules)]
@@ -198,7 +181,7 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
             }
         )
 
-    special_parent_ids: Dict[str, int] = {}
+    special_parent_ids: dict[str, int] = {}
 
     for place in shared_places:
         rows.append(
@@ -227,7 +210,9 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
                         "subtype": gp_cells["housing_category"].lower(),
                         "tier": tier["name"],
                         "capacity": gp_cells["default_bunk_capacity"],
-                        "overflow_capacity": gp_cells["overflow"]["overflow_bunk_capacity"],
+                        "overflow_capacity": gp_cells["overflow"][
+                            "overflow_bunk_capacity"
+                        ],
                         "parent_id": parent_id,
                     }
                 )
@@ -282,7 +267,7 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
                 "tier",
                 "capacity",
                 "parent_id",
-                "overflow_capacity"
+                "overflow_capacity",
             ],
         )
         writer.writeheader()
@@ -290,29 +275,32 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
     return rows
 
 
-def generate_cell_assignments(mod_def_file, cells: List[Dict], output_file: str | os.PathLike) -> List[Dict]:
+def generate_cell_assignments(
+    mod_def_file, cells: list[dict], output_file: str | os.PathLike
+) -> list[dict]:
     data = get_params(mod_def_file)
     module = data.get("facility")
+    assert module is not None
     n_residents = module["residents"]["count"]
 
     gp_cells = [c for c in cells if c.get("subtype") == "gp"]
     total_capacity = sum(c["overflow_capacity"] for c in gp_cells)
     if total_capacity < n_residents:
-        raise ValueError(
-            f"GP capacity {total_capacity} < residents {n_residents}"
-        )
+        raise ValueError(f"GP capacity {total_capacity} < residents {n_residents}")
 
-    rows: List[Dict] = []
+    rows: list[dict] = []
     bunk_names = ["bottom", "top", "third"]
     for i in range(n_residents):
         cell = gp_cells.pop(0)
         cell["occupants"] = cell["occupants"] + 1 if cell.get("occupants") else 1
-        rows.append({
-            "person_id": i,
-            "module_id": cell["parent_id"],
-            "cell_place_id": cell["place_id"],
-            "bunk_position": bunk_names[cell["occupants"] - 1]
-        })
+        rows.append(
+            {
+                "person_id": i,
+                "module_id": cell["parent_id"],
+                "cell_place_id": cell["place_id"],
+                "bunk_position": bunk_names[cell["occupants"] - 1],
+            }
+        )
         if cell["occupants"] < cell["overflow_capacity"]:
             gp_cells.append(cell)
     with open(output_file, "w") as fout:
@@ -331,12 +319,14 @@ def generate_cell_assignments(mod_def_file, cells: List[Dict], output_file: str 
     return rows
 
 
-def generate_residents(mod_def_file, places: List[Dict], output_file: str | os.PathLike):
+def generate_residents(
+    mod_def_file, places: list[dict], output_file: str | os.PathLike
+):
     generate_cell_assignments(mod_def_file, places, output_file)
 
 
 if __name__ == "__main__":
     places = generate_places("params/module_definition.yaml", "data/ng_places.csv")
-    generate_cell_assignments("params/module_definition.yaml", places, "data/ng_cell_assignments_test.csv")
-
-
+    generate_cell_assignments(
+        "params/module_definition.yaml", places, "data/ng_cell_assignments_test.csv"
+    )
