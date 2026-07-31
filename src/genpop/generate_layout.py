@@ -1,8 +1,8 @@
 import csv
 import os
 import string
-
 import yaml
+from typing import Any
 
 
 def get_params(mod_def_file):
@@ -25,6 +25,7 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
     data = get_params(mod_def_file)
 
     module = data.get("facility")
+    assert module is not None
     module_name = module["name"]
     n_modules = module["modules"]["count"]
     module_letters = [string.ascii_uppercase[i] for i in range(n_modules)]
