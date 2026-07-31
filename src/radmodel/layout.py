@@ -132,6 +132,8 @@ class Layout:
             i = 0
             reader = csv.DictReader(f)
             for r in reader:
+                if r["type"] == "facility":
+                    continue
                 n_id = int(r["place_id"])
                 self.places_id_map[n_id] = i
                 self.place_data[i, 0] = n_id
