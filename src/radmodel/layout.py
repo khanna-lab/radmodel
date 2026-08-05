@@ -10,6 +10,7 @@ import os
 from dataclasses import dataclass, field
 import string
 from numpy import uint32, zeros, ndarray, ix_
+import numpy as np
 from typing import TypeVar
 
 T = TypeVar("T")
@@ -126,7 +127,7 @@ class Layout:
             path to folder containing ng_places.csv
         """
         with open(os.path.join(path, "ng_places.csv")) as f:
-            self.n_places = len(f.readlines()) - 1
+            self.n_places = len(f.readlines()) - 2  # exclude header and facility 
         with open(os.path.join(path, "ng_places.csv")) as f:
             self.place_data = zeros((self.n_places, 3), dtype=uint32)
             i = 0
@@ -200,21 +201,20 @@ class Layout:
         np.ndarray
             Array of shape (len(place_idxs), 2) containing counts of persons and infected persons.
         """
-
         return self.place_data[
-            #TODO review why this is causing a lint error, works if you make the latter two an array
             ix_(places_idxs, (PL_PERSON_COUNT_IDX, PL_INFECTED_COUNT_IDX))
         ]
 
     def get_all_counts(self):
         """Get the counts of persons and infected persons for all places.
-        
+
         Returns
         =======
         np.ndarray
             Array of shape (n_places, 2) containing counts of persons and infected persons.
         """
         return self.place_data[:, (PL_PERSON_COUNT_IDX, PL_INFECTED_COUNT_IDX)]
+
 
 def _opt_int(s: str) -> int | None:
     return int(s) if s != "" else None

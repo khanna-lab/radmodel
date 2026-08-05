@@ -5,6 +5,7 @@ import string
 import pytest
 from collections import Counter
 from pandas import read_csv
+import numpy as np
 
 from genpop import generate
 from radmodel.layout import Layout
@@ -121,3 +122,31 @@ def test_subplace_module(fresh_layout):
 
 def test_place_ids_globally_unique(places):
     assert len(places["place_id"]) == len(set(places["place_id"]))
+
+
+def test_get_counts_no_agents(fresh_layout):
+    idxs = [i for i in fresh_layout.places_id_map.values()]
+    assert not fresh_layout.get_counts(idxs).any(), "New array of counts should be zero."
+    assert not fresh_layout.get_all_counts().any(), "New array of counts should be zero."
+
+def test_update_get_counts(fresh_layout):
+    idxs = [i for i in fresh_layout.places_id_map.values()]
+    counts = [np.random.choice([0,3]) for _ in idxs]
+    fresh_layout.update_counts(places=idxs, counts=counts)
+    # all counts
+    actual_get_counts = [i[0] for i in fresh_layout.get_counts(idxs)]
+    actual_get_all_counts = [i[0] for i in fresh_layout.get_all_counts()]
+    assert counts == actual_get_counts
+    assert counts == actual_get_all_counts
+    # Only get first 20
+    actual_get_counts = [i[0] for i in fresh_layout.get_counts(idxs[0:20])]
+    assert actual_get_counts == counts[0:20]
+
+
+def test_update_infected_get_infected_counts(fresh_layout):
+    idxs = [i for i in fresh_layout.places_id_map.values()]
+    infected_counts = [np.random.choice([0,3]) for _ in idxs]
+    fresh_layout.update_infected_counts(places=idxs, counts=infected_counts)
+    found_counts = [i[1] for i in fresh_layout.get_counts(idxs)]
+    assert infected_counts == found_counts
+
