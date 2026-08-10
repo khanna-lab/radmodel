@@ -4,7 +4,6 @@ import os
 from collections import Counter
 
 import pytest
-from pandas import DataFrame, read_csv
 
 from genpop import generate_agents, generate_layout
 from radmodel.layout import Layout
@@ -20,7 +19,6 @@ def overflow_layout(tmp_path_factory):
     layout = Layout()
     layout.load_places(str(d))
     return layout
-
 
 def test_module_count(fresh_layout, params_no_overflow):
     assert len(fresh_layout.modules) == params_no_overflow["modules"]["count"]
@@ -51,7 +49,7 @@ def test_total_cell_count(fresh_layout, params_no_overflow):
     )
 
 
-def test_each_module_has_40_gp_cells(fresh_layout):
+def test_each_module_has_58_gp_cells(fresh_layout):
     for module in fresh_layout.modules.values():
         gp = [cell for cell in module.cells if cell.housing_category == "gp"]
         assert len(gp) == 40
@@ -79,9 +77,6 @@ def test_shared_places_total(fresh_layout):
 
 def test_shared_places_per_type(fresh_layout):
     expected = {
-        "dayroom": 2,
-        "shower": 2,
-        "dining_room": 2,
         "gym": 1,
         "yard": 1,
         "education": 1,
@@ -92,6 +87,10 @@ def test_shared_places_per_type(fresh_layout):
     }
     values = [d.place_type for d in fresh_layout.shared_places.values()]
     assert dict(Counter(values)) == expected
+    for module in fresh_layout.modules.values():
+        assert len(module.showers) == 1
+        assert len(module.dayrooms) == 1
+    assert len(fresh_layout.cafeterias) == 2
 
 
 def test_subplace_module(fresh_layout):
