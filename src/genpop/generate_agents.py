@@ -26,6 +26,22 @@ def generate_persons(
     places_file: str | os.PathLike,
     output_file: str | os.PathLike,
 ):
+    """Generate agents with the given parameters.
+
+    Parameters
+    ==========
+    num_persons: int
+        number of agents to generate
+    places_file: str | os.PathLike
+        Path to a .csv file containing places
+    output_file: str | os.PathLike
+        Path to save outputs
+
+    Returns
+    =======
+    list
+        A list of agent data
+    """
     print("Warning: Using Single Schedule 0")
 
     layout = get_layout(places_file)
@@ -86,6 +102,17 @@ def generate_persons(
 
 
 def generate_schedule(schedule_id: int):
+    """Generates a schedule for an agent.
+
+    Parameters
+    ==========
+    schedule_id: int
+        A number indicating the baseline schedule the agent adheres to
+
+    Returns
+    list[list]
+        The agent's schedule
+    """
     # in cell from midnight to 6AM, 7PM to midnight
     acts = [[schedule_id, 0, "cell", 1], [schedule_id, 19 * 60, "cell", 1]]
 
@@ -114,6 +141,15 @@ def generate_schedule(schedule_id: int):
 
 
 def generate_schedules(num_schedules: int, output_file: str | os.PathLike):
+    """Generates all baseline schedules.
+
+    Parameters
+    ==========
+    num_schedules: int
+        Number of different schedules to produce
+    output_file
+        File location to save.
+    """
     with open(output_file, "w") as fout:
         writer = csv.writer(fout)
         writer.writerow(["schedule_id", "start", "place_type", "risk"])

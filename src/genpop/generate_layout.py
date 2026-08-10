@@ -162,6 +162,14 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
 def generate_cell_assignments(
     mod_def_file, cells: list[dict], output_file: str | os.PathLike
 ) -> list[dict]:
+    """Generates a cell assignment for each agent.
+    module_def_file: str | os.PathLike
+        Path to a .yaml file containing parameters to define the setting
+    cells: list[dict]
+        All cells in the model
+    output_file: str | os.PathLike
+        File location to save outputs
+    """
     data = get_params(mod_def_file)
     module = data.get("facility")
     assert module is not None
