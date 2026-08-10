@@ -94,6 +94,9 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
                         "subtype": gp_cells["housing_category"].lower(),
                         "tier": tier["name"],
                         "capacity": gp_cells["default_bunk_capacity"],
+                        "overflow_capacity": gp_cells["overflow"][
+                            "overflow_bunk_capacity"
+                        ],
                         "parent_id": parent_id,
                     }
                 )
@@ -117,6 +120,7 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
                     "type": "cell",
                     "subtype": place_type,
                     "capacity": special["bunk_capacity"],
+                    "overflow_capacity": special["bunk_capacity"],
                     "parent_id": parent_id,
                 }
             )
@@ -147,11 +151,66 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
                 "tier",
                 "capacity",
                 "parent_id",
+                "overflow_capacity",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+    return rows
+
+
+def generate_cell_assignments(
+    mod_def_file, cells: list[dict], output_file: str | os.PathLike
+) -> list[dict]:
+    data = get_params(mod_def_file)
+    module = data.get("facility")
+    assert module is not None
+    n_residents = module["residents"]["count"]
+
+    gp_cells = [c for c in cells if c.get("subtype") == "gp"]
+    total_capacity = sum(c["overflow_capacity"] for c in gp_cells)
+    if total_capacity < n_residents:
+        raise ValueError(f"GP capacity {total_capacity} < residents {n_residents}")
+
+    rows: list[dict] = []
+    bunk_names = ["bottom", "top", "third"]
+    for i in range(n_residents):
+        cell = gp_cells.pop(0)
+        cell["occupants"] = cell["occupants"] + 1 if cell.get("occupants") else 1
+        rows.append(
+            {
+                "person_id": i,
+                "module_id": cell["parent_id"],
+                "cell_place_id": cell["place_id"],
+                "bunk_position": bunk_names[cell["occupants"] - 1],
+            }
+        )
+        if cell["occupants"] < cell["overflow_capacity"]:
+            gp_cells.append(cell)
+    with open(output_file, "w") as fout:
+        writer = csv.DictWriter(
+            fout,
+            fieldnames=[
+                "person_id",
+                "module_id",
+                "cell_place_id",
+                "bunk_position",
             ],
         )
         writer.writeheader()
         writer.writerows(rows)
 
+    return rows
+
+
+def generate_residents(
+    mod_def_file, places: list[dict], output_file: str | os.PathLike
+):
+    generate_cell_assignments(mod_def_file, places, output_file)
+
 
 if __name__ == "__main__":
-    generate_places("params/module_definition.yaml", "data/ng_places.csv")
+    places = generate_places("params/module_definition.yaml", "data/ng_places.csv")
+    generate_cell_assignments(
+        "params/module_definition.yaml", places, "data/ng_cell_assignments_test.csv"
+    )

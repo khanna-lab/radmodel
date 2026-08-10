@@ -2,6 +2,9 @@
 
 import os
 import string
+import pytest
+from collections import Counter
+from pandas import read_csv
 
 import pytest
 from pandas import DataFrame, read_csv
@@ -31,6 +34,16 @@ def overflow_layout(tmp_path_factory):
     layout = Layout()
     layout.load_places(str(d))
     return layout
+
+@pytest.fixture(scope="session")
+def places(tmp_path_factory):
+    d = tmp_path_factory.mktemp("layout")
+    generate.generate_places(
+        "./tests/test_params/module_no_overflow.yaml",
+        os.path.join(str(d), "ng_places.csv"),
+    )
+    return read_csv(os.path.join(str(d), "ng_places.csv"))
+
 
 @pytest.fixture(scope="session")
 def params_no_overflow():
@@ -119,35 +132,33 @@ def test_no_cell_oversubscribed(fresh_layout):
 
 
 def test_shared_places_total(fresh_layout):
-    # 10 dayrooms + 10 showers + 2 dining + 9 single-instance facility-shared
-    assert len(fresh_layout.shared_places) == 31
+    # 2 dayrooms + 2 showers + 2 dining + 9 single-instance facility-shared
+    assert len(fresh_layout.shared_places) == 13
 
 
 def test_shared_places_per_type(fresh_layout):
     expected = {
-        "dayroom": 10,
-        "shower": 10,
+        "dayroom": 2,
+        "shower": 2,
         "dining_room": 2,
         "gym": 1,
         "yard": 1,
         "education": 1,
         "industry": 1,
         "visit_room": 1,
-        "medical": 1,
         "chapel": 1,
         "barber": 1,
-        "segregation": 1,
     }
-    for place_type, count in expected.items():
-        assert len(fresh_layout.shared_places_by_type(place_type)) == count, place_type
+    values = [d.place_type for d in fresh_layout.shared_places.values()]
+    assert dict(Counter(values)) == expected
 
 
-def test_module_subplaces_have_parent_others_dont(fresh_layout):
-    for p in fresh_layout.shared_places:
+def test_subplace_module(fresh_layout):
+    for p in fresh_layout.shared_places.values():
         if p.place_type in ("dayroom", "shower"):
-            assert p.parent_module_id is not None
+            assert p.module_id != 2011
         else:
-            assert p.parent_module_id is None
+            assert p.module_id == 2011
 
 
 def test_fk_module_ids_valid(fresh_layout):
