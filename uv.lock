@@ -1078,6 +1078,7 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "pre-commit" },
+    { name = "pytest" },
     { name = "tox" },
 ]
 docs = [
@@ -1099,6 +1100,7 @@ requires-dist = [
     { name = "mpi4py" },
     { name = "pandas", specifier = ">=3.0.5" },
     { name = "pre-commit", marker = "extra == 'dev'" },
+    { name = "pytest", marker = "extra == 'dev'" },
     { name = "repast4py" },
     { name = "tox", marker = "extra == 'dev'" },
 ]
