@@ -17,6 +17,6 @@ jobs:
           CC: mpich
           MPICC: mpich
           CXX: mpicxx
-        run: uv sync
+        run: uv sync --extra dev
       - name: Unit test with pytest
         run: uv run pytest .
