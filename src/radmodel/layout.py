@@ -7,10 +7,11 @@ is descriptive metadata for future schedule/movement work.
 
 import csv
 import os
-from dataclasses import dataclass, field
 import string
-from numpy import uint32, zeros, ndarray
+from dataclasses import dataclass, field
 from typing import TypeVar
+
+from numpy import ndarray, uint32, zeros
 
 T = TypeVar("T")
 
@@ -20,6 +21,9 @@ class Agent:
     person_id: int
     module_id: int
     cell_place_id: int
+    morning_act_name: str
+    afternoon_act_name: str
+    evening_act_name: str
 
 
 @dataclass
@@ -66,12 +70,33 @@ class Module(BaseModule):
     module_id: int = 0
     letter: str = ""
     shared_places: list[SharedPlace] = field(default_factory=list)
+    showers: list[SharedPlace] = field(default_factory=list)
+    dayrooms: list[SharedPlace] = field(default_factory=list)
+
+    def add_shared_place(self, **r):
+        if r["subtype"] == "shower":
+            self.showers.append(
+                SharedPlace(
+                    place_id=int(r["place_id"]),
+                    name=r["name"],
+                    place_type=r["subtype"],
+                    module_id=_opt_int(r["parent_id"]),
+                )
+            )
+        elif r["subtype"] == "dayroom":
+            self.dayrooms.append(
+                SharedPlace(
+                    place_id=int(r["place_id"]),
+                    name=r["name"],
+                    place_type=r["subtype"],
+                    module_id=_opt_int(r["parent_id"]),
+                )
+            )
 
 
 @dataclass
 class SharedModule(BaseModule):
     module_id: str = ""
-    pass
 
 
 @dataclass
@@ -89,7 +114,9 @@ class Layout:
     place_data: ndarray = field(default_factory=lambda: zeros((), dtype=uint32))
     modules: dict[int, Module] = field(default_factory=dict)
     shared_places: dict[str, SharedPlace] = field(default_factory=dict)
+    cafeterias: dict[str, SharedPlace] = field(default_factory=dict)
     shared_modules: dict[str, SharedModule] = field(default_factory=dict)
+    gp_count = 0
 
     def add_module(self, **r):
         letter = string.ascii_uppercase[int(r["place_id"]) - 2012]
@@ -104,6 +131,18 @@ class Layout:
 
     def add_shared_place(self, **r):
         self.shared_places.update(
+            {
+                r["name"]: SharedPlace(
+                    place_id=int(r["place_id"]),
+                    name=r["name"],
+                    place_type=r["subtype"],
+                    module_id=_opt_int(r["parent_id"]),
+                )
+            }
+        )
+
+    def add_cafeterias(self, **r):
+        self.cafeterias.update(
             {
                 r["name"]: SharedPlace(
                     place_id=int(r["place_id"]),
@@ -129,27 +168,36 @@ class Layout:
             i = 0
             reader = csv.DictReader(f)
             for r in reader:
-                if r["type"] == "facility":
+                place_type = r["type"]
+                subtype = r["subtype"]
+                if place_type == "facility":
                     continue
                 n_id = int(r["place_id"])
                 self.places_id_map[n_id] = i
                 self.place_data[i, 0] = n_id
-                # TODO this should probably have some sort of mapping for the functions instead of an if
-                if r["type"] == "module":
-                    self.add_module(**r)
-                elif r["type"] == "cell":
-                    if r["subtype"] == "gp":
-                        self.modules[int(r["parent_id"])].add_cell(**r)
-                    elif r["subtype"] == "mi":
-                        self.shared_modules["medical"].add_cell(**r)
-                    elif r["subtype"] == "rh":
-                        self.shared_modules["segregation"].add_cell(**r)
-
-                else:
-                    if r["subtype"] in ["segregation", "medical"]:
-                        self.add_shared_module(**r)
-                    else:
-                        self.add_shared_place(**r)
+                match place_type:
+                    case "facility":
+                        continue
+                    case  "module":
+                        self.add_module(**r)
+                    case "cell":
+                        match subtype:
+                            case "gp":
+                                self.modules[int(r["parent_id"])].add_cell(**r)
+                                self.gp_count += 1
+                            case "mi":
+                                self.shared_modules["medical"].add_cell(**r)
+                            case "rh":
+                                self.shared_modules["segregation"].add_cell(**r)
+                    case _:
+                        if subtype in ["segregation", "medical"]:
+                            self.add_shared_module(**r)
+                        elif subtype == "dining_room":
+                            self.add_cafeterias(**r)
+                        elif subtype in ["shower", "dayroom"]:
+                            self.modules[int(r["parent_id"])].add_shared_place(**r)
+                        else:
+                            self.add_shared_place(**r)
                 i += 1
 
     @classmethod

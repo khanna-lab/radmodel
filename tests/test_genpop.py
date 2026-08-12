@@ -6,14 +6,14 @@ import pytest
 from collections import Counter
 from pandas import read_csv
 
-from genpop import generate
+from genpop import generate_agents, generate_layout
 from radmodel.layout import Layout
 
 
 @pytest.fixture(scope="session")
 def fresh_layout(tmp_path_factory):
     d = tmp_path_factory.mktemp("layout")
-    generate.generate_places(
+    generate_layout.generate_places(
         "./tests/test_params/module_no_overflow.yaml",
         os.path.join(str(d), "ng_places.csv"),
     )
@@ -25,7 +25,7 @@ def fresh_layout(tmp_path_factory):
 @pytest.fixture(scope="session")
 def places(tmp_path_factory):
     d = tmp_path_factory.mktemp("layout")
-    generate.generate_places(
+    generate_layout.generate_places(
         "./tests/test_params/module_no_overflow.yaml",
         os.path.join(str(d), "ng_places.csv"),
     )
@@ -34,7 +34,7 @@ def places(tmp_path_factory):
 
 @pytest.fixture(scope="session")
 def params_no_overflow():
-    return generate.get_params("./tests/test_params/module_no_overflow.yaml")[
+    return generate_layout.get_params("./tests/test_params/module_no_overflow.yaml")[
         "facility"
     ]
 
@@ -89,16 +89,8 @@ def test_mi_cell_count(fresh_layout):
     assert len(fresh_layout.shared_modules["medical"].cells) == 20
 
 
-def test_shared_places_total(fresh_layout):
-    # 2 dayrooms + 2 showers + 2 dining + 9 single-instance facility-shared
-    assert len(fresh_layout.shared_places) == 13
-
-
-def test_shared_places_per_type(fresh_layout):
+def test_shared_places_per_type(fresh_layout, params_no_overflow):
     expected = {
-        "dayroom": 2,
-        "shower": 2,
-        "dining_room": 2,
         "gym": 1,
         "yard": 1,
         "education": 1,
@@ -109,6 +101,10 @@ def test_shared_places_per_type(fresh_layout):
     }
     values = [d.place_type for d in fresh_layout.shared_places.values()]
     assert dict(Counter(values)) == expected
+    for module in fresh_layout.modules.values():
+        assert len(module.showers) == 1
+        assert len(module.dayrooms) == 1
+    assert len(fresh_layout.cafeterias) == 2
 
 
 def test_subplace_module(fresh_layout):

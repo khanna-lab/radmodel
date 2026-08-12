@@ -1070,6 +1070,7 @@ name = "radmodel"
 version = "0.0.1a0"
 source = { editable = "." }
 dependencies = [
+    { name = "click" },
     { name = "mpi4py" },
     { name = "pandas" },
     { name = "repast4py" },
@@ -1078,6 +1079,7 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "pre-commit" },
+    { name = "pytest" },
     { name = "tox" },
 ]
 docs = [
@@ -1093,12 +1095,14 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "click", specifier = ">=8.4.2" },
     { name = "mike", marker = "extra == 'docs'" },
     { name = "mkdocs-material", marker = "extra == 'docs'" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.18" },
     { name = "mpi4py" },
     { name = "pandas", specifier = ">=3.0.5" },
     { name = "pre-commit", marker = "extra == 'dev'" },
+    { name = "pytest", marker = "extra == 'dev'" },
     { name = "repast4py" },
     { name = "tox", marker = "extra == 'dev'" },
 ]
