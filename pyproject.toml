@@ -11,12 +11,12 @@ authors = [
 dependencies = [
     "mpi4py",
     "repast4py",
-    "pytest",
     "click>=8.4.2",
 ]
 
 [project.optional-dependencies]
 dev = [
+    "pytest",
     "pre-commit",
     "tox"
 ]

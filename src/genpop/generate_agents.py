@@ -101,7 +101,7 @@ def generate_persons(
     return agents
 
 
-def generate_schedule(schedule_id: int):
+def generate_schedule(schedule_id: int) -> list[tuple[int, int, str, int]]:
     """Generates a schedule for an agent.
 
     Parameters
@@ -110,28 +110,28 @@ def generate_schedule(schedule_id: int):
         A number indicating the baseline schedule the agent adheres to
 
     Returns
-    list[list]
+    list[tuple[int, int, str, int]]
         The agent's schedule
     """
     # in cell from midnight to 6AM, 7PM to midnight
-    acts = [[schedule_id, 0, "cell", 1], [schedule_id, 19 * 60, "cell", 1]]
+    acts = [(schedule_id, 0, "cell", 1), (schedule_id, 19 * 60, "cell", 1)]
 
     breakfast = random.choice([6, 7])
     lunch = random.choice([11, 12, 13])
     dinner = random.choice([17, 18])
 
     acts += [
-        [schedule_id, breakfast * 60, "cafeteria", 1],
-        [schedule_id, lunch * 60, "cafeteria", 1],
+        (schedule_id, breakfast * 60, "cafeteria", 1),
+        (schedule_id, lunch * 60, "cafeteria", 1),
         [schedule_id, dinner * 60, "cafeteria", 1],
     ]
 
     # activities between breakfast and lunch
     morning_acts = [
-        [schedule_id, h * 60, "activity", 1] for h in range(breakfast + 1, lunch)
+        (schedule_id, h * 60, "activity", 1) for h in range(breakfast + 1, lunch)
     ]
     afternoon_acts = [
-        [schedule_id, h * 60, random.choice(["outdoor", "activity", "activity"]), 1]
+        (schedule_id, h * 60, random.choice(["outdoor", "activity", "activity"]), 1)
         for h in range(lunch + 1, dinner)
     ]
     acts += morning_acts + afternoon_acts

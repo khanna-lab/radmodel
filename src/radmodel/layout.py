@@ -168,34 +168,36 @@ class Layout:
             i = 0
             reader = csv.DictReader(f)
             for r in reader:
-                if r["type"] == "facility":
+                place_type = r["type"]
+                subtype = r["subtype"]
+                if place_type == "facility":
                     continue
                 n_id = int(r["place_id"])
                 self.places_id_map[n_id] = i
                 self.place_data[i, 0] = n_id
-                # TODO this should probably have some sort of mapping for the functions instead of an if
-                if r["type"] == "facility":
-                    continue
-                if r["type"] == "module":
-                    self.add_module(**r)
-                elif r["type"] == "cell":
-                    if r["subtype"] == "gp":
-                        self.modules[int(r["parent_id"])].add_cell(**r)
-                        self.gp_count += 1
-                    elif r["subtype"] == "mi":
-                        self.shared_modules["medical"].add_cell(**r)
-                    elif r["subtype"] == "rh":
-                        self.shared_modules["segregation"].add_cell(**r)
-
-                else:
-                    if r["subtype"] in ["segregation", "medical"]:
-                        self.add_shared_module(**r)
-                    elif r["subtype"] == "dining_room":
-                        self.add_cafeterias(**r)
-                    elif r["subtype"] in ["shower", "dayroom"]:
-                        self.modules[int(r["parent_id"])].add_shared_place(**r)
-                    else:
-                        self.add_shared_place(**r)
+                match place_type:
+                    case "facility":
+                        continue
+                    case  "module":
+                        self.add_module(**r)
+                    case "cell":
+                        match subtype:
+                            case "gp":
+                                self.modules[int(r["parent_id"])].add_cell(**r)
+                                self.gp_count += 1
+                            case "mi":
+                                self.shared_modules["medical"].add_cell(**r)
+                            case "rh":
+                                self.shared_modules["segregation"].add_cell(**r)
+                    case _:
+                        if subtype in ["segregation", "medical"]:
+                            self.add_shared_module(**r)
+                        elif subtype == "dining_room":
+                            self.add_cafeterias(**r)
+                        elif subtype in ["shower", "dayroom"]:
+                            self.modules[int(r["parent_id"])].add_shared_place(**r)
+                        else:
+                            self.add_shared_place(**r)
                 i += 1
 
     @classmethod
