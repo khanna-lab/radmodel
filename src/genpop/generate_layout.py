@@ -1,225 +1,232 @@
-"""Structural layout generator (Moran Medium Security).
-
-Implements `references/specs/structural-layout-v1.md`. Emits four CSVs
-describing facility structure as descriptive metadata; the running simulation
-is unaffected.
-
-Outputs (into the target directory):
-  - ng_modules.csv           modules A..J
-  - ng_cells.csv             all cells (GP module cells + RH + MI) with
-                             tier, cell_number, housing_category, bunk_capacity
-  - ng_shared_places.csv     dayrooms, showers, dining, gym, yard, education,
-                             industries, visit, medical, chapel, barber, seg
-  - ng_cell_assignments.csv  1200 residents mapped to GP cells with bunk position
-"""
 import csv
 import os
-from typing import Dict, List
+import string
+
+import yaml
 
 
-N_MODULES = 10
-MODULE_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]
-TIERS = ["bottom", "top"]
-N_CELLS_PER_TIER = 29
-N_CELLS_PER_MODULE = len(TIERS) * N_CELLS_PER_TIER
-N_MODULE_CELLS = N_MODULES * N_CELLS_PER_MODULE  # 580
-
-N_RH_CELLS = 30
-N_MI_CELLS = 20
-
-N_RESIDENTS = 1200
-# 1200 residents - 1160 nominal capacity (580 cells * 2 bunks) = 40 overflow.
-# Spread evenly: 4 triple-bunked cells per module, lowest cell_numbers in bottom tier.
-OVERFLOW = max(0, N_RESIDENTS - N_MODULE_CELLS * 2)
-N_TRIPLE_PER_MODULE = OVERFLOW // N_MODULES  # 4
-
-# Place_id namespaces (gaps reserved for forward compatibility)
-CELL_ID_START = 0          # cells: GP + RH + MI
-SUBPLACE_ID_START = 1000   # dayrooms + showers (one of each per module)
-SHARED_ID_START = 2000     # facility-shared places
-
-SHARED_PLACES = [
-    ("dining_room_1", "dining_room"),
-    ("dining_room_2", "dining_room"),
-    ("gym", "gym"),
-    ("yard", "yard"),
-    ("education_building", "education"),
-    ("industries_building", "industry"),
-    ("visiting_room", "visit_room"),
-    ("medical", "medical"),
-    ("chapel", "chapel"),
-    ("barber", "barber"),
-    ("segregation_unit", "segregation"),
-]
+def get_params(mod_def_file):
+    with open(mod_def_file) as fin:
+        return yaml.safe_load(fin)
 
 
-def generate_modules() -> List[Dict]:
-    return [{"module_id": i, "letter": MODULE_LETTERS[i]} for i in range(N_MODULES)]
+def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathLike):
+    """Generates a csv containing all places, fields:
+    place_id | name | type | subtype | tier | capacity | parent_id
 
+    Parameters
+    ==========
+    mod_def_file: str | os.PathLike
+        Path to a .yaml file containing parameters to define the setting
+    output_file: str | os.PathLike
+        Path to file location to save the place csv.
+    """
 
-def generate_cells() -> List[Dict]:
-    rows: List[Dict] = []
-    place_id = CELL_ID_START
+    data = get_params(mod_def_file)
 
-    for m_id in range(N_MODULES):
-        letter = MODULE_LETTERS[m_id]
-        triple_numbers = set(range(1, N_TRIPLE_PER_MODULE + 1))
-        for tier in TIERS:
-            for cell_number in range(1, N_CELLS_PER_TIER + 1):
-                bunks = 3 if (tier == "bottom" and cell_number in triple_numbers) else 2
-                rows.append({
-                    "place_id": place_id,
-                    "module_id": m_id,
-                    "tier": tier,
-                    "cell_number": cell_number,
-                    "housing_category": "GP",
-                    "bunk_capacity": bunks,
-                    "name": f"cell_{letter}_{tier}_{cell_number}",
-                })
-                place_id += 1
+    module = data.get("facility")
+    module_name = module["name"]
+    n_modules = module["modules"]["count"]
+    module_letters = [string.ascii_uppercase[i] for i in range(n_modules)]
+    tiers = module["tiers"]
+    gp_cells = module["cells"]["gp"]
+    special_cells = module["cells"]["special"]
+    subplaces = module["subplaces"]
+    shared_places = module["shared_places"]
 
-    for i in range(N_RH_CELLS):
-        rows.append({
-            "place_id": place_id,
-            "module_id": "",
-            "tier": "",
-            "cell_number": i + 1,
-            "housing_category": "RH",
-            "bunk_capacity": 1,
-            "name": f"seg_cell_{i + 1}",
-        })
-        place_id += 1
+    cell_id = module["place_ids"]["cell_id_start"]
+    subplace_id = module["place_ids"]["subplace_id_start"]
+    shared_id = module["place_ids"]["shared_id_start"]
 
-    for i in range(N_MI_CELLS):
-        rows.append({
-            "place_id": place_id,
-            "module_id": "",
-            "tier": "",
-            "cell_number": i + 1,
-            "housing_category": "MI",
-            "bunk_capacity": 1,
-            "name": f"mi_cell_{i + 1}",
-        })
-        place_id += 1
+    facility_id = max(
+        shared_id + len(shared_places), subplace_id + len(subplaces) * n_modules
+    )
+    module_id_start = facility_id + 1
 
-    return rows
+    module_parent_by_letter = {
+        letter: module_id_start + i for i, letter in enumerate(module_letters)
+    }
 
-
-def generate_shared_places() -> List[Dict]:
-    rows: List[Dict] = []
-
-    place_id = SUBPLACE_ID_START
-    for m_id in range(N_MODULES):
-        letter = MODULE_LETTERS[m_id]
-        rows.append({
-            "place_id": place_id,
-            "name": f"dayroom_{letter}",
-            "place_type": "dayroom",
-            "parent_module_id": m_id,
-            "capacity": "",
-        })
-        place_id += 1
-        rows.append({
-            "place_id": place_id,
-            "name": f"shower_{letter}",
-            "place_type": "shower",
-            "parent_module_id": m_id,
-            "capacity": "",
-        })
-        place_id += 1
-
-    place_id = SHARED_ID_START
-    for name, place_type in SHARED_PLACES:
-        rows.append({
-            "place_id": place_id,
-            "name": name,
-            "place_type": place_type,
-            "parent_module_id": "",
-            "capacity": "",
-        })
-        place_id += 1
-
-    return rows
-
-
-def generate_cell_assignments(cells: List[Dict]) -> List[Dict]:
-    gp_cells = [c for c in cells if c["housing_category"] == "GP"]
-    total_capacity = sum(c["bunk_capacity"] for c in gp_cells)
-    if total_capacity < N_RESIDENTS:
-        raise ValueError(
-            f"GP capacity {total_capacity} < residents {N_RESIDENTS}"
+    rows = [
+        {
+            "place_id": facility_id,
+            "name": module_name,
+            "type": "facility",
+            "parent_id": "",
+        }
+    ]
+    for letter in module_letters:
+        rows.append(
+            {
+                "place_id": module_parent_by_letter[letter],
+                "name": f"module_{letter}",
+                "type": "module",
+                "parent_id": facility_id,
+            }
         )
 
-    rows: List[Dict] = []
-    person_id = 0
-    bunk_names = ["bottom", "top", "third"]
-    for cell in gp_cells:
-        for bunk in bunks_for(cell["bunk_capacity"], bunk_names):
-            if person_id >= N_RESIDENTS:
-                return rows
-            rows.append({
-                "person_id": person_id,
-                "cell_place_id": cell["place_id"],
-                "bunk_position": bunk,
-            })
-            person_id += 1
+    special_parent_ids: dict[str, int] = {}
+
+    for place in shared_places:
+        rows.append(
+            {
+                "place_id": shared_id,
+                "name": place["name"],
+                "type": "shared",
+                "subtype": place["place_type"],
+                "parent_id": facility_id,
+            }
+        )
+        special_parent_ids[place["place_type"]] = shared_id
+        shared_id += 1
+
+    for letter in module_letters:
+        parent_id = module_parent_by_letter[letter]
+        for tier in tiers:
+            tier_name = tier["name"]
+            cells_per_tier = tier["cells_per_tier"]
+            for n in range(1, cells_per_tier + 1):
+                rows.append(
+                    {
+                        "place_id": cell_id,
+                        "name": f"cell_{letter}_{tier_name}_{n}",
+                        "type": "cell",
+                        "subtype": gp_cells["housing_category"].lower(),
+                        "tier": tier["name"],
+                        "capacity": gp_cells["default_bunk_capacity"],
+                        "overflow_capacity": gp_cells["overflow"][
+                            "overflow_bunk_capacity"
+                        ],
+                        "parent_id": parent_id,
+                    }
+                )
+                cell_id += 1
+
+    for special in special_cells:  # cells outside the general population category
+        housing_category = special["housing_category"]
+        place_type = housing_category.lower()
+        if housing_category == "RH":
+            parent_id = special_parent_ids.get("segregation", facility_id)
+        elif housing_category == "MI":
+            parent_id = special_parent_ids.get("medical", facility_id)
+        else:
+            parent_id = facility_id
+
+        for i in range(1, special["count"] + 1):
+            rows.append(
+                {
+                    "place_id": cell_id,
+                    "name": f"{special['name_prefix']}_{i}",
+                    "type": "cell",
+                    "subtype": place_type,
+                    "capacity": special["bunk_capacity"],
+                    "overflow_capacity": special["bunk_capacity"],
+                    "parent_id": parent_id,
+                }
+            )
+            cell_id += 1
+
+    for letter in module_letters:
+        parent_id = module_parent_by_letter[letter]
+        for subplace in subplaces:
+            rows.append(
+                {
+                    "place_id": subplace_id,
+                    "name": subplace["name_template"].format(module_letter=letter),
+                    "type": "subplace",
+                    "subtype": subplace["place_type"],
+                    "parent_id": parent_id,
+                }
+            )
+            subplace_id += 1
+
+    with open(output_file, "w") as fout:
+        writer = csv.DictWriter(
+            fout,
+            fieldnames=[
+                "place_id",
+                "name",
+                "type",
+                "subtype",
+                "tier",
+                "capacity",
+                "parent_id",
+                "overflow_capacity",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(rows)
     return rows
 
 
-def bunks_for(capacity: int, names: List[str]) -> List[str]:
-    return names[:capacity]
+def generate_cell_assignments(
+    mod_def_file, cells: list[dict], output_file: str | os.PathLike
+) -> list[dict]:
+    """Generates a cell assignment for each agent.
+
+    Parameters
+    ==========
+    module_def_file: str | os.PathLike
+        Path to a .yaml file containing parameters to define the setting
+    cells: list[dict]
+        All cells in the model
+    output_file: str | os.PathLike
+        File location to save outputs
+    
+    Returns
+    =======
+    list[dict]
+        Cell assignment for each agent
+    """
+    data = get_params(mod_def_file)
+    module = data.get("facility")
+    assert module is not None
+    n_residents = module["residents"]["count"]
+
+    gp_cells = [c for c in cells if c.get("subtype") == "gp"]
+    total_capacity = sum(c["overflow_capacity"] for c in gp_cells)
+    if total_capacity < n_residents:
+        raise ValueError(f"GP capacity {total_capacity} < residents {n_residents}")
+
+    rows: list[dict] = []
+    bunk_names = ["bottom", "top", "third"]
+    for i in range(n_residents):
+        cell = gp_cells.pop(0)
+        cell["occupants"] = cell["occupants"] + 1 if cell.get("occupants") else 1
+        rows.append(
+            {
+                "person_id": i,
+                "module_id": cell["parent_id"],
+                "cell_place_id": cell["place_id"],
+                "bunk_position": bunk_names[cell["occupants"] - 1],
+            }
+        )
+        if cell["occupants"] < cell["overflow_capacity"]:
+            gp_cells.append(cell)
+    with open(output_file, "w") as fout:
+        writer = csv.DictWriter(
+            fout,
+            fieldnames=[
+                "person_id",
+                "module_id",
+                "cell_place_id",
+                "bunk_position",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+    return rows
 
 
-def write_csv(path: str | os.PathLike, rows: List[Dict], fieldnames: List[str]) -> None:
-    with open(path, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=fieldnames)
-        w.writeheader()
-        w.writerows(rows)
-
-
-def generate_all(output_dir: str | os.PathLike) -> Dict[str, int]:
-    os.makedirs(output_dir, exist_ok=True)
-
-    modules = generate_modules()
-    cells = generate_cells()
-    shared = generate_shared_places()
-    assignments = generate_cell_assignments(cells)
-
-    write_csv(
-        os.path.join(output_dir, "ng_modules.csv"),
-        modules,
-        ["module_id", "letter"],
-    )
-    write_csv(
-        os.path.join(output_dir, "ng_cells.csv"),
-        cells,
-        ["place_id", "module_id", "tier", "cell_number",
-         "housing_category", "bunk_capacity", "name"],
-    )
-    write_csv(
-        os.path.join(output_dir, "ng_shared_places.csv"),
-        shared,
-        ["place_id", "name", "place_type", "parent_module_id", "capacity"],
-    )
-    write_csv(
-        os.path.join(output_dir, "ng_cell_assignments.csv"),
-        assignments,
-        ["person_id", "cell_place_id", "bunk_position"],
-    )
-
-    return {
-        "modules": len(modules),
-        "cells": len(cells),
-        "shared_places": len(shared),
-        "cell_assignments": len(assignments),
-    }
+def generate_residents(
+    mod_def_file, places: list[dict], output_file: str | os.PathLike
+):
+    generate_cell_assignments(mod_def_file, places, output_file)
 
 
 if __name__ == "__main__":
-    import argparse
-
-    p = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else "")
-    p.add_argument("output_dir", help="Directory to write the layout CSVs")
-    args = p.parse_args()
-    counts = generate_all(args.output_dir)
-    print(f"Wrote layout to {args.output_dir}: {counts}")
+    places = generate_places("params/module_definition.yaml", "data/ng_places.csv")
+    generate_cell_assignments(
+        "params/module_definition.yaml", places, "data/ng_cell_assignments_test.csv"
+    )

@@ -82,7 +82,7 @@ def _schedule_rows_to_array(
     risks = np.zeros((TICKS_PER_DAY), dtype=np.float32)
     rows_index = 0
     row = rows[rows_index]
-    for idx in range(0, TICKS_PER_DAY):
+    for idx in range(TICKS_PER_DAY):
         t = idx * TICK_DURATION
         # sorted so can ignore start
         while t >= row.end:

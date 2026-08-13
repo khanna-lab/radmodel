@@ -5,15 +5,19 @@ version = "0.0.1a"
 authors = [
     { name = "Nick Collier", email = "ncollier@anl.gov"    },
     { name = "Aditya Khanna",    email = "aditya_khanna@brown.edu" },
-    { name = "Jonathan Ozik",    email = "jozik@anl.gov" }
+    { name = "Jonathan Ozik",    email = "jozik@anl.gov" },
+    { name = "Sam Bessey", email="sam_bessey@brown.edu" }
 ]
 dependencies = [
+    "mpi4py",
     "repast4py",
-    "pytest"
+    "click>=8.4.2",
+    "pandas>=3.0.5",
 ]
 
 [project.optional-dependencies]
 dev = [
+    "pytest",
     "pre-commit",
     "tox"
 ]
@@ -45,3 +49,8 @@ extend-select = ["Q"]
     pythonpath = [
         "src"
     ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

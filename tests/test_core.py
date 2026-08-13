@@ -1,10 +1,11 @@
+import os
+import tempfile
+
 import numpy as np
 import yaml
 from mpi4py import MPI
-import tempfile
-import os
 
-from radmodel import population, common, core
+from radmodel import common, core, population
 
 
 def _create_s1_expected():
