@@ -63,7 +63,7 @@ def _validate_row(row: ScheduleRow):
 
 def _schedule_rows_to_array(
     rows: list[ScheduleRow],
-) -> tuple[np.ndarray[int], np.ndarray[float]]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Create tick-indexed for schedule places and risks.
 
     Parameters
@@ -142,7 +142,7 @@ def _parse_schedules(fname: str | os.PathLike) -> dict[int, list[ScheduleRow]]:
 
 def create_schedules(
     fname: str | os.PathLike,
-) -> tuple[dict[int, int], np.ndarray[int], np.ndarray[float]]:
+) -> tuple[dict[int, int], np.ndarray, np.ndarray]:
     """Create tick-indexed schedule places and risks for all schedules in the file.
 
     Parameters
@@ -234,7 +234,7 @@ class Places:
             Array of shape (len(place_idxs), 2) containing counts of persons and infected persons.
         """
         return self.place_data[
-            np.ix_(place_idxs, (PL_PERSON_COUNT_IDX, PL_INFECTED_COUNT_IDX))
+            np.ix_(place_idxs, (PL_PERSON_COUNT_IDX, PL_INFECTED_COUNT_IDX)) # type: ignore
         ]
 
     def get_all_counts(self):
