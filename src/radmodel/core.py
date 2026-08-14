@@ -83,7 +83,7 @@ class Model:
     def __init__(
         self,
         comm: MPI.Intracomm,
-        schedule_data: np.ndarray[int],
+        schedule_data: np.ndarray,
         person_data: np.ndarray,
         place_data: Places,
         stoe: float,
