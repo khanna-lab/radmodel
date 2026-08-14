@@ -1,7 +1,6 @@
 import csv
 import os
 
-import pandas as pd
 import numpy as np
 from pydantic import BaseModel, Field
 
@@ -57,13 +56,27 @@ class ScheduleRow(BaseModel):
 
 
 class Schedule(BaseModel):
-    # rows: list[ScheduleRow] = Field(default_factory=list)
+    """Class for agent schedules.
+
+    Attributes
+    ==========
+    schedule_data : dict[int, list[ScheduleRow]]
+        Dictionary mapping schedule ID to a list of ScheduleRow objects.
+    id_map: dict[int, int]
+        Mapping from schedule ID to index in the schedule array.
+    schedule_array: np.ndarray
+        1d-array of length n_schedules * TICKS_PER_DAY containing place types
+        for each tick in the day for each schedule.
+    risks_array: np.ndarray
+        1d-array of length n_schedules * TICKS_PER_DAY containing risks
+        for each tick in the day for each schedule.
+    """
+
     schedule_data: dict[int, list[ScheduleRow]] = Field(default_factory=dict)
     id_map: dict[int, int] = Field(default_factory=dict)
     schedule_array: np.ndarray
     risks_array: np.ndarray
 
-    
     @staticmethod
     def _schedule_rows_to_array(rows) -> tuple[np.ndarray, np.ndarray]:
         """Create tick-indexed for schedule places and risks.
@@ -95,7 +108,6 @@ class Schedule(BaseModel):
             risks[idx] = row.risk
 
         return np_data, risks
-
 
     @staticmethod
     def _parse_schedules(fname: str | os.PathLike):
@@ -135,14 +147,12 @@ class Schedule(BaseModel):
             if rows[0].start != 0:
                 raise ValueError(f"Schedule {sid} does not start time 0")
             for i, row in enumerate(rows[:-1]):
-                if row.start == rows[i+1].start:
+                if row.start == rows[i + 1].start:
                     raise ValueError(f"Agent {row.id} has duplicate timesteps!")
                 row.end = rows[i + 1].start
             rows[-1].end = MIDNIGHT
 
         return schedule_data
-        # return schedule_data
-
 
     @classmethod
     def create_schedules(
@@ -158,14 +168,8 @@ class Schedule(BaseModel):
 
         Returns
         =======
-        id_map: dict[int, int]
-            Mapping from schedule ID to index in the schedule array.
-        schedule_array: np.ndarray
-            1d-array of length n_schedules * TICKS_PER_DAY containing place types
-            for each tick in the day for each schedule.
-        risks_array: np.ndarray
-            1d-array of length n_schedules * TICKS_PER_DAY containing risks
-            for each tick in the day for each schedule.
+        Schedule
+            Full schedule for all schedule IDs
         """
         # schedule = Schedule()
         schedule_data = cls._parse_schedules(fname)
@@ -180,8 +184,12 @@ class Schedule(BaseModel):
 
         schedule_array = np.concatenate(schedules, axis=0)
         risks_array = np.concatenate(risks, axis=0)
-        id_map = id_map
-        return Schedule(schedule_data=schedule_data, schedule_array=schedule_array, risks_array=risks_array)
+        return Schedule(
+            schedule_data=schedule_data,
+            id_map=id_map,
+            schedule_array=schedule_array,
+            risks_array=risks_array,
+        )
 
 
 class Places:
