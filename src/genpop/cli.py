@@ -53,7 +53,7 @@ def cli():
     required=True,
 )
 def create_persons(num_persons: int, places_file, output_file):
-    generate_agents.generate_persons(
+    generate_agents.generate_agents(
         num_persons, places_file, output_file
     )
 
