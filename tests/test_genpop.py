@@ -1,43 +1,9 @@
 """Tests for the v1 structural layout (see references/specs/structural-layout-v1.md)."""
-
 import os
 import string
-import pytest
 from collections import Counter
-from pandas import read_csv
 
-from genpop import generate_agents, generate_layout
-from radmodel.layout import Layout
-
-
-@pytest.fixture(scope="session")
-def fresh_layout(tmp_path_factory):
-    d = tmp_path_factory.mktemp("layout")
-    generate_layout.generate_places(
-        "./tests/test_params/module_no_overflow.yaml",
-        os.path.join(str(d), "ng_places.csv"),
-    )
-    layout = Layout()
-    layout.load_places(str(d))
-    return layout
-
-
-@pytest.fixture(scope="session")
-def places(tmp_path_factory):
-    d = tmp_path_factory.mktemp("layout")
-    generate_layout.generate_places(
-        "./tests/test_params/module_no_overflow.yaml",
-        os.path.join(str(d), "ng_places.csv"),
-    )
-    return read_csv(os.path.join(str(d), "ng_places.csv"))
-
-
-@pytest.fixture(scope="session")
-def params_no_overflow():
-    return generate_layout.get_params("./tests/test_params/module_no_overflow.yaml")[
-        "facility"
-    ]
-
+from genpop import generate_agents
 
 def test_module_count(fresh_layout, params_no_overflow):
     assert len(fresh_layout.modules) == params_no_overflow["modules"]["count"]
@@ -117,3 +83,19 @@ def test_subplace_module(fresh_layout):
 
 def test_place_ids_globally_unique(places):
     assert len(places["place_id"]) == len(set(places["place_id"]))
+
+def test_generate_schedule():
+    schedule = generate_agents.generate_schedule(0)
+    for activity in schedule:
+        assert activity[1] % 60 == 0, "Activities should be hourly"
+
+def test_generate_schedules(tmp_path_factory):
+    d = tmp_path_factory.mktemp("schedules")
+    generate_agents.generate_schedules(10, os.path.join(str(d), "schedules.csv"))
+    with open(os.path.join(str(d), "schedules.csv")) as f:
+        schedules = f.readlines()[1:]
+    schedule_ids = []
+    for line in schedules:
+        schedule_ids.append(line[0])
+
+    assert len(set(schedule_ids)) == 10, "Did not create correct number of schedules"
