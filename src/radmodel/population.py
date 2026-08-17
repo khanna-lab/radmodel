@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 from pydantic import BaseModel, Field
+import pydantic_numpy.typing as pnd
 
 from .common import MIDNIGHT, SUSCEPTIBLE, TICK_DURATION, TICKS_PER_DAY
 
@@ -74,8 +75,8 @@ class Schedule(BaseModel):
 
     schedule_data: dict[int, list[ScheduleRow]] = Field(default_factory=dict)
     id_map: dict[int, int] = Field(default_factory=dict)
-    schedule_array: np.ndarray
-    risks_array: np.ndarray
+    schedule_array: pnd.NpNDArrayFp32
+    risks_array: pnd.NpNDArrayFp32
 
     @staticmethod
     def _schedule_rows_to_array(rows) -> tuple[np.ndarray, np.ndarray]:

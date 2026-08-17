@@ -21,7 +21,7 @@ def get_layout(places_file):
     return layout
 
 
-def generate_persons(
+def generate_agents(
     num_persons: int,
     places_file: str | os.PathLike,
     output_file: str | os.PathLike,
