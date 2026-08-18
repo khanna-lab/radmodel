@@ -3,8 +3,9 @@ import os
 import pytest
 from pandas import read_csv
 
-from genpop import generate_layout, generate_agents
+from genpop import generate_agents, generate_layout
 from radmodel.layout import Layout
+
 # from radmodel.population import Schedule
 
 

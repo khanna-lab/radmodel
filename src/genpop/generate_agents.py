@@ -128,13 +128,15 @@ def generate_schedule(schedule_id: int) -> list[tuple[int, int, str, int]]:
 
     # activities between breakfast and lunch
     morning_acts = [
-        (schedule_id, h * 60, "activity", 1) for h in range(breakfast + 1, lunch)
+        (schedule_id, h * 60, "morning_act", 1) for h in range(breakfast + 1, lunch)
     ]
-    afternoon_acts = [
-        (schedule_id, h * 60, random.choice(["outdoor", "activity", "activity"]), 1)
+    afternoon_acts = [ # TODO what is outdoor? Not accounted for in actually loading schedules
+        (schedule_id, h * 60, random.choice(["outdoor", "noon_act", "noon_act"]), 1)
         for h in range(lunch + 1, dinner)
     ]
     acts += morning_acts + afternoon_acts
+
+    # TODO are there evening acts?
 
     acts.sort(key=lambda x: x[1])
     return acts
