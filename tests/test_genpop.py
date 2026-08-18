@@ -1,9 +1,11 @@
 """Tests for the v1 structural layout (see references/specs/structural-layout-v1.md)."""
+
 import os
 import string
 from collections import Counter
 
 from genpop import generate_agents
+
 
 def test_module_count(fresh_layout, params_no_overflow):
     assert len(fresh_layout.modules) == params_no_overflow["modules"]["count"]
@@ -84,10 +86,14 @@ def test_subplace_module(fresh_layout):
 def test_place_ids_globally_unique(places):
     assert len(places["place_id"]) == len(set(places["place_id"]))
 
+
+
 def test_generate_schedule():
     schedule = generate_agents.generate_schedule(0)
     for activity in schedule:
         assert activity[1] % 60 == 0, "Activities should be hourly"
+
+
 
 def test_generate_schedules(tmp_path_factory):
     d = tmp_path_factory.mktemp("schedules")

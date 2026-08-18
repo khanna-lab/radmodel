@@ -2,8 +2,8 @@ import csv
 import os
 
 import numpy as np
-from pydantic import BaseModel, Field
 import pydantic_numpy.typing as pnd
+from pydantic import BaseModel, Field
 
 from .common import MIDNIGHT, SUSCEPTIBLE, TICK_DURATION, TICKS_PER_DAY
 
@@ -52,7 +52,7 @@ class ScheduleRow(BaseModel):
     id: int
     start: int = Field(ge=0, le=MIDNIGHT)
     end: int = Field(ge=0, le=MIDNIGHT)
-    place_type: int
+    place_type: str
     risk: float
 
 
@@ -75,7 +75,7 @@ class Schedule(BaseModel):
 
     schedule_data: dict[int, list[ScheduleRow]] = Field(default_factory=dict)
     id_map: dict[int, int] = Field(default_factory=dict)
-    schedule_array: pnd.NpNDArrayFp32
+    schedule_array: pnd.NpNDArray
     risks_array: pnd.NpNDArrayFp32
 
     @staticmethod
@@ -94,7 +94,7 @@ class Schedule(BaseModel):
         risks: np.ndarray[int]
             Array of risks for each tick in the day.
         """
-        np_data = np.zeros((TICKS_PER_DAY), dtype=np.int32)
+        np_data = np.zeros((TICKS_PER_DAY), dtype="U11")
         risks = np.zeros((TICKS_PER_DAY), dtype=np.float32)
         rows_index = 0
         row = rows[rows_index]
@@ -134,7 +134,7 @@ class Schedule(BaseModel):
                     id=int(row[0]),
                     start=int(row[1]),
                     end=0,
-                    place_type=SCHEDULE_PLACE_TYPE_MAP[row[2]],
+                    place_type=row[2], # TODO this may need to revert to int
                     risk=float(row[3]),
                 )
                 if srow.id in schedule_data:
