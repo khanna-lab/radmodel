@@ -2,12 +2,13 @@ import csv
 import os
 
 import numpy as np
+import polars as pl
 import pydantic_numpy.typing as pnd
 from pydantic import BaseModel, Field
 
 from .common import MIDNIGHT, SUSCEPTIBLE, TICK_DURATION, TICKS_PER_DAY
 
-P_DATA_ID_IDX = 0
+# P_DATA_ID_IDX = 0
 P_DATA_SCHEDULE_IDX = 1
 P_DATA_CELL_IDX = 2
 P_DATA_CAF_IDX = 3
@@ -36,161 +37,24 @@ N_P_ELEMENTS = P_NEXT_STATE_T_IDX + 1
 PL_PERSON_COUNT_IDX = 1
 PL_INFECTED_COUNT_IDX = 2
 
+def create_schedules(
+    fname: str,
+) -> pl.DataFrame:
+    """Create tick-indexed schedule places and risks for all schedules in the file.
 
-# Maps activity type string in schedule to
-# index into the np array of the person data
-SCHEDULE_PLACE_TYPE_MAP = {
-    "cell": P_CELL_IDX,
-    "noon_act": P_NACT_IDX,
-    "morning_act": P_MACT_IDX,
-    "evening_act": P_EACT_IDX,
-    "cafeteria": P_CAF_IDX,
-}
-
-
-class ScheduleRow(BaseModel):
-    id: int
-    start: int = Field(ge=0, le=MIDNIGHT)
-    end: int = Field(ge=0, le=MIDNIGHT)
-    place_type: str
-    risk: float
-
-
-class Schedule(BaseModel):
-    """Class for agent schedules.
-
-    Attributes
+    Parameters
     ==========
-    schedule_data : dict[int, list[ScheduleRow]]
-        Dictionary mapping schedule ID to a list of ScheduleRow objects.
-    id_map: dict[int, int]
-        Mapping from schedule ID to index in the schedule array.
-    schedule_array: np.ndarray
-        1d-array of length n_schedules * TICKS_PER_DAY containing place types
-        for each tick in the day for each schedule.
-    risks_array: np.ndarray
-        1d-array of length n_schedules * TICKS_PER_DAY containing risks
-        for each tick in the day for each schedule.
+    fname: str | os.PathLike
+        Path to the schedule CSV file.
+
+    Returns
+    =======
+    Schedule
+        Full schedule for all schedule IDs
     """
-
-    schedule_data: dict[int, list[ScheduleRow]] = Field(default_factory=dict)
-    id_map: dict[int, int] = Field(default_factory=dict)
-    schedule_array: pnd.NpNDArray
-    risks_array: pnd.NpNDArrayFp32
-
-    @staticmethod
-    def _schedule_rows_to_array(rows) -> tuple[np.ndarray, np.ndarray]:
-        """Create tick-indexed for schedule places and risks.
-
-        Parameters
-        ==========
-        rows: List[ScheduleRow]
-            List of schedule rows for a single schedule id.
-
-        Returns
-        =======
-        np_data: np.ndarray[int]
-            Array of place types for each tick in the day.
-        risks: np.ndarray[int]
-            Array of risks for each tick in the day.
-        """
-        np_data = np.zeros((TICKS_PER_DAY), dtype="U11")
-        risks = np.zeros((TICKS_PER_DAY), dtype=np.float32)
-        rows_index = 0
-        row = rows[rows_index]
-        for idx in range(TICKS_PER_DAY):
-            t = idx * TICK_DURATION
-            # sorted so can ignore start
-            while t >= row.end:
-                rows_index += 1
-                row = rows[rows_index]
-
-            np_data[idx] = row.place_type
-            risks[idx] = row.risk
-
-        return np_data, risks
-
-    @staticmethod
-    def _parse_schedules(fname: str | os.PathLike):
-        """Wrangle schedule data from CSV file into a dictionary of schedule rows.
-
-        Parameters
-        ==========
-        fname: str | os.PathLike
-            Path to the schedule CSV file.
-
-        Returns
-        =======
-        schedule_data: dict[int, list[ScheduleRow]]
-            Dictionary mapping schedule ID to a list of ScheduleRow objects.
-        """
-        schedule_data = {}
-
-        with open(fname) as fin:
-            reader = csv.reader(fin)
-            next(reader)
-            for row in reader:
-                srow = ScheduleRow(
-                    id=int(row[0]),
-                    start=int(row[1]),
-                    end=0,
-                    place_type=row[2], # TODO this may need to revert to int
-                    risk=float(row[3]),
-                )
-                if srow.id in schedule_data:
-                    schedule_data[srow.id].append(srow)
-                else:
-                    schedule_data[srow.id] = [srow]
-
-        for sid, rows in schedule_data.items():
-            rows.sort(key=lambda x: x.start)
-
-            if rows[0].start != 0:
-                raise ValueError(f"Schedule {sid} does not start time 0")
-            for i, row in enumerate(rows[:-1]):
-                if row.start == rows[i + 1].start:
-                    raise ValueError(f"Agent {row.id} has duplicate timesteps!")
-                row.end = rows[i + 1].start
-            rows[-1].end = MIDNIGHT
-
-        return schedule_data
-
-    @classmethod
-    def create_schedules(
-        cls,
-        fname: str | os.PathLike,
-    ) -> "Schedule":
-        """Create tick-indexed schedule places and risks for all schedules in the file.
-
-        Parameters
-        ==========
-        fname: str | os.PathLike
-            Path to the schedule CSV file.
-
-        Returns
-        =======
-        Schedule
-            Full schedule for all schedule IDs
-        """
-        # schedule = Schedule()
-        schedule_data = cls._parse_schedules(fname)
-        schedules = []
-        risks = []
-        id_map = {}
-        for i, (sid, rows) in enumerate(schedule_data.items()):
-            id_map[sid] = i
-            sched_places, risk = cls._schedule_rows_to_array(rows)
-            schedules.append(sched_places)
-            risks.append(risk)
-
-        schedule_array = np.concatenate(schedules, axis=0)
-        risks_array = np.concatenate(risks, axis=0)
-        return Schedule(
-            schedule_data=schedule_data,
-            id_map=id_map,
-            schedule_array=schedule_array,
-            risks_array=risks_array,
-        )
+    schedules = pl.read_csv(fname)
+    schedules = schedules.with_columns(t=pl.int_ranges("start", "end"))
+    return schedules.explode("t", empty_as_null=False)
 
 
 class Places:
@@ -305,7 +169,7 @@ def create_places(fname: str | os.PathLike) -> Places:
 
 
 def create_residents(
-    fname: str | os.PathLike,
+    fname: str,
     place_id_map: dict[int, int],
     schedule_id_map: dict[int, int],
 ) -> np.ndarray:
@@ -329,39 +193,40 @@ def create_residents(
     np.ndarray
         2d-array of shape (n_persons, N_P_ELEMENTS) containing resident data.
     """
-    n_persons = 0
-    with open(fname) as fin:
-        next(fin)
-        for _ in fin:
-            n_persons += 1
+    pl.read_csv(fname)
+    # n_persons = 0
+    # with open(fname) as fin:
+    #     next(fin)
+    #     for _ in fin:
+    #         n_persons += 1
 
-    resident_data = np.zeros((n_persons, N_P_ELEMENTS), dtype=np.uint32)
-    # Everyone is susceptible at the start of the simulation, and no next transition time
-    resident_data[:, P_STATE_IDX] = SUSCEPTIBLE
-    # Set next transition time to max value, which indicates no transition is scheduled
-    resident_data[:, P_NEXT_STATE_T_IDX] = np.iinfo(np.uint32).max
+    # resident_data = np.zeros((n_persons, N_P_ELEMENTS), dtype=np.uint32)
+    # # Everyone is susceptible at the start of the simulation, and no next transition time
+    # resident_data[:, P_STATE_IDX] = SUSCEPTIBLE
+    # # Set next transition time to max value, which indicates no transition is scheduled
+    # resident_data[:, P_NEXT_STATE_T_IDX] = np.iinfo(np.uint32).max
 
-    with open(fname) as fin:
-        reader = csv.reader(fin)
-        next(reader)
-        for i, row in enumerate(reader):
-            pid = int(row[P_DATA_ID_IDX])
-            sched_id = schedule_id_map[int(row[P_DATA_SCHEDULE_IDX])]
-            cell_id = place_id_map[int(row[P_DATA_CELL_IDX])]
-            caf_id = place_id_map[int(row[P_DATA_CAF_IDX])]
-            mact_id = place_id_map[int(row[P_DATA_MACT_IDX])]
-            nact_id = place_id_map[int(row[P_DATA_NACT_IDX])]
-            eact_id = place_id_map[int(row[P_DATA_EACT_IDX])]
-            resident_data[i, :-2] = (
-                pid,
-                sched_id,
-                cell_id,
-                cell_id,
-                caf_id,
-                mact_id,
-                nact_id,
-                eact_id,
-            )
+    # with open(fname) as fin:
+    #     reader = csv.reader(fin)
+    #     next(reader)
+    #     for i, row in enumerate(reader):
+    #         pid = int(row[P_DATA_ID_IDX])
+    #         sched_id = schedule_id_map[int(row[P_DATA_SCHEDULE_IDX])]
+    #         cell_id = place_id_map[int(row[P_DATA_CELL_IDX])]
+    #         caf_id = place_id_map[int(row[P_DATA_CAF_IDX])]
+    #         mact_id = place_id_map[int(row[P_DATA_MACT_IDX])]
+    #         nact_id = place_id_map[int(row[P_DATA_NACT_IDX])]
+    #         eact_id = place_id_map[int(row[P_DATA_EACT_IDX])]
+    #         resident_data[i, :-2] = (
+    #             pid,
+    #             sched_id,
+    #             cell_id,
+    #             cell_id,
+    #             caf_id,
+    #             mact_id,
+    #             nact_id,
+    #             eact_id,
+            # )
 
             # act_ids = [place_id_map[i] for i in _parse_resident_place_entry(row[P_DATA_ACTS_IDX])]
             # caf_ids = [place_id_map[i] for i in _parse_resident_place_entry(row[P_DATA_CAFS_IDX])]
