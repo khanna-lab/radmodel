@@ -11,19 +11,10 @@ import string
 from dataclasses import dataclass, field
 from typing import TypeVar
 
+import polars as pl
 from numpy import ndarray, uint32, zeros
 
 T = TypeVar("T")
-
-
-@dataclass
-class Agent:
-    person_id: int
-    module_id: int
-    cell_place_id: int
-    morning_act_name: str
-    afternoon_act_name: str
-    evening_act_name: str
 
 
 @dataclass
@@ -35,7 +26,7 @@ class Cell:
     housing_category: str  # "GP", "RH", "MI"
     bunk_capacity: int
     name: str
-    occupants: list[Agent] = field(default_factory=list)
+    occupants: pl.DataFrame = field(default_factory=pl.DataFrame)
 
 
 @dataclass
@@ -44,7 +35,7 @@ class SharedPlace:
     name: str
     place_type: str
     module_id: int | None
-    occupants: list[Agent] = field(default_factory=list)
+    occupants: pl.DataFrame = field(default_factory=pl.DataFrame)
 
 
 @dataclass
@@ -178,7 +169,7 @@ class Layout:
                 match place_type:
                     case "facility":
                         continue
-                    case  "module":
+                    case "module":
                         self.add_module(**r)
                     case "cell":
                         match subtype:
@@ -200,6 +191,9 @@ class Layout:
                             self.add_shared_place(**r)
                 i += 1
 
+    # def update_counts(self, place_data: pl.DataFrame):
+
+
     @classmethod
     def load_from_csv(cls, data_dir: str | os.PathLike) -> "Layout":
         """Load the structural CSV from a directory."""
@@ -210,7 +204,3 @@ class Layout:
 
 def _opt_int(s: str) -> int | None:
     return int(s) if s != "" else None
-
-
-def _opt_str(s: str) -> str | None:
-    return s if s != "" else None

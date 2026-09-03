@@ -38,13 +38,13 @@ def cli():
     help="Path to the places file containing the places to assign to persons",
     required=True,
 )
-@click.option(
-    "-m",
-    "--module-definition-file",
-    type=click.Path(),
-    help="Path to the module definition file containing the module specific places to assign to persons",
-    required=True,
-)
+# @click.option(
+#     "-m",
+#     "--module-definition-file",
+#     type=click.Path(),
+#     help="Path to the module definition file containing the module specific places to assign to persons",
+#     required=True,
+# )
 @click.option(
     "-o",
     "--output_file",

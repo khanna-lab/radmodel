@@ -9,7 +9,7 @@ from .layout import Layout
 
 def run(params: dict, comm):
     fname = params["schedule_file"]
-    schedule = population.Schedule.create_schedules(fname)
+    schedule = population.create_schedules(fname)
     fname = params["places_file"]
     prison_layout = Layout.load_from_csv("data/")
     places: population.Places = population.Places(prison_layout.places_id_map, prison_layout.place_data)

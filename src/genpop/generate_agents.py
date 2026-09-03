@@ -1,4 +1,3 @@
-import csv
 import os
 import random
 
@@ -34,7 +33,6 @@ def generate_agents(
     layout = Layout.load_from_csv(places_file)
     n_mods = len(layout.modules)
     agents_per_module = num_persons // n_mods
-    agent_id = 0
     cell_idx = 0
     agents = []
 
@@ -55,18 +53,18 @@ def generate_agents(
             agents.append(
                 pl.DataFrame(
                     {
-                        "person_id": agent_id,
+                        "person_id": i,
                         "module_id": module_id,
                         "cell_place_id": cell.place_id,
                         "morning_act_name": morning_activity.name,
                         "afternoon_act_name": afternoon_activity.name,
                         "evening_act_name": evening_activity.name,
                         "schedule_id": schedule_id,
-                        "cafeteria": cafeteria,
+                        "cafeteria": cafeteria.place_id,
                     }
                 )
             )
-            agent_id += 1
+            
             cell_idx += 1
             if cell_idx == len(module.cells):
                 cell_idx = 0
@@ -93,10 +91,10 @@ def generate_schedule(schedule_id: int) -> pl.DataFrame:
     # in cell from midnight to 6AM, 7PM to midnight
     # acts = [(schedule_id, 0, "cell", 1), (schedule_id, 19 * 60, "cell", 1)]
     acts = {
-        "schedule_id": [schedule_id] * 13,
+        "schedule_id": schedule_id,
         "start": [0, 19 * 60],
         "place_type": ["cell", "cell"],
-        "risk": [1] * 13,
+        "risk": 1,
     }
 
     breakfast = random.choice([6, 7])
@@ -112,8 +110,8 @@ def generate_schedule(schedule_id: int) -> pl.DataFrame:
     acts["start"] += morning_acts
     acts["place_type"] += ["morning_act"] * len(morning_acts)
     for a in range(lunch + 1, dinner):
-        acts["start"] += a * 60
-        acts["place_type"] += random.choice(["outdoor", "noon_act", "noon_act"])
+        acts["start"].append(a * 60)
+        acts["place_type"].append(random.choice(["outdoor", "noon_act", "noon_act"]))
 
     acts_df = pl.DataFrame(acts)
     acts_df.sort(by="start")

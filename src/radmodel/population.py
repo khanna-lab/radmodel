@@ -3,10 +3,7 @@ import os
 
 import numpy as np
 import polars as pl
-import pydantic_numpy.typing as pnd
-from pydantic import BaseModel, Field
-
-from .common import MIDNIGHT, SUSCEPTIBLE, TICK_DURATION, TICKS_PER_DAY
+from pydantic import BaseModel
 
 # P_DATA_ID_IDX = 0
 P_DATA_SCHEDULE_IDX = 1
@@ -36,6 +33,7 @@ N_P_ELEMENTS = P_NEXT_STATE_T_IDX + 1
 
 PL_PERSON_COUNT_IDX = 1
 PL_INFECTED_COUNT_IDX = 2
+
 
 def create_schedules(
     fname: str,
@@ -170,67 +168,24 @@ def create_places(fname: str | os.PathLike) -> Places:
 
 def create_residents(
     fname: str,
-    place_id_map: dict[int, int],
-    schedule_id_map: dict[int, int],
-) -> np.ndarray:
+) -> pl.DataFrame:
     """Create residents data array from CSV file.
 
-    This mainly involves mapping the place and schedule IDs to their corresponding indices
-    in the place and schedule arrays.Also adds two additional columns for the resident's
+    Reads in resident csv and adds two additional columns for the resident's
     current disease state and the next transition time.
 
     Parameters
     ==========
     fname: str | os.PathLike
         Path to the residents CSV file.
-    place_id_map: dict[int, int]
-        Mapping from place ID to index in the place array.
-    schedule_id_map: dict[int, int]
-        Mapping from schedule ID to index in the schedule array.
 
     Returns
     =======
-    np.ndarray
-        2d-array of shape (n_persons, N_P_ELEMENTS) containing resident data.
+    pl.DataFrame
+        Dataframe containing resident data.
     """
-    pl.read_csv(fname)
-    # n_persons = 0
-    # with open(fname) as fin:
-    #     next(fin)
-    #     for _ in fin:
-    #         n_persons += 1
-
-    # resident_data = np.zeros((n_persons, N_P_ELEMENTS), dtype=np.uint32)
-    # # Everyone is susceptible at the start of the simulation, and no next transition time
-    # resident_data[:, P_STATE_IDX] = SUSCEPTIBLE
-    # # Set next transition time to max value, which indicates no transition is scheduled
-    # resident_data[:, P_NEXT_STATE_T_IDX] = np.iinfo(np.uint32).max
-
-    # with open(fname) as fin:
-    #     reader = csv.reader(fin)
-    #     next(reader)
-    #     for i, row in enumerate(reader):
-    #         pid = int(row[P_DATA_ID_IDX])
-    #         sched_id = schedule_id_map[int(row[P_DATA_SCHEDULE_IDX])]
-    #         cell_id = place_id_map[int(row[P_DATA_CELL_IDX])]
-    #         caf_id = place_id_map[int(row[P_DATA_CAF_IDX])]
-    #         mact_id = place_id_map[int(row[P_DATA_MACT_IDX])]
-    #         nact_id = place_id_map[int(row[P_DATA_NACT_IDX])]
-    #         eact_id = place_id_map[int(row[P_DATA_EACT_IDX])]
-    #         resident_data[i, :-2] = (
-    #             pid,
-    #             sched_id,
-    #             cell_id,
-    #             cell_id,
-    #             caf_id,
-    #             mact_id,
-    #             nact_id,
-    #             eact_id,
-            # )
-
-            # act_ids = [place_id_map[i] for i in _parse_resident_place_entry(row[P_DATA_ACTS_IDX])]
-            # caf_ids = [place_id_map[i] for i in _parse_resident_place_entry(row[P_DATA_CAFS_IDX])]
-            # outdoor_id = place_id_map[int(row[P_DATA_OUT_IDX])]
-            # set current place to cell id
-
-    return resident_data
+    residents = pl.read_csv(fname)
+    return residents.with_columns(
+        pl.lit("susceptible").alias("state"),
+        pl.lit(np.iinfo(np.uint32).max).alias("next_transition"),
+    )
