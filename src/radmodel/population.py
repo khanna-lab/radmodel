@@ -56,7 +56,7 @@ def create_schedules(
 
 
 class Places:
-    def __init__(self, place_id_map: dict[int, int], place_data: np.ndarray):
+    def __init__(self, place_data: pl.DataFrame):
         """Class to hold place data and provide methods to update and retrieve counts.
 
         Parameters
@@ -71,7 +71,6 @@ class Places:
                 2: number of infecteds
         """
         self.place_data = place_data
-        self.place_id_map = place_id_map
 
     def update_counts(self, places: np.ndarray, counts: np.ndarray):
         """Update the counts of persons in the specified places.
@@ -83,10 +82,10 @@ class Places:
         counts: np.ndarray
             Array of counts corresponding to the places.
         """
-        self.place_data[:, PL_PERSON_COUNT_IDX:] = 0
+
         self.place_data[places, PL_PERSON_COUNT_IDX] = counts
 
-    def update_infected_counts(self, places: np.ndarray, counts: np.ndarray):
+    def update_infected_counts(self, counts: pl.DataFrame):
         """Update the counts of infected persons in the specified places.
 
         Parameters
@@ -96,8 +95,7 @@ class Places:
         counts: np.ndarray
             Array of counts corresponding to the places.
         """
-        self.place_data[:, PL_INFECTED_COUNT_IDX:] = 0
-        self.place_data[places, PL_INFECTED_COUNT_IDX] = counts
+        self.place_data = self.place_data.update(counts, on="place_id")
 
     def get_counts(self, place_idxs: np.ndarray):
         """Get the counts of persons and infected persons for the specified places.

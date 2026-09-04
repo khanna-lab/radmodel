@@ -12,7 +12,7 @@ def run(params: dict, comm):
     schedule = population.create_schedules(fname)
     fname = params["places_file"]
     prison_layout = Layout.load_from_csv("data/")
-    places: population.Places = population.Places(prison_layout.places_id_map, prison_layout.place_data)
+    places: population.Places = population.Places(prison_layout.place_data)
     fname = params["residents_file"]
     residents = population.create_residents(fname, places.place_id_map, schedule.id_map)
 
