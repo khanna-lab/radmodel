@@ -139,13 +139,13 @@ class Model:
 
         self._init_logging(comm, params)
         self._init_schedule(comm)
-        self._init_agents(person_data, schedule_data)
+        self._init_agents(person_data)
         self._init_exposed(params["init_exposed"])
         self._log(0)
 
-    def _init_agents(self, person_data: pl.DataFrame, schedule_data: pl.DataFrame):
+    def _init_agents(self, person_data: pl.DataFrame):
         """Initiates model agents. This merges the other agent data with their full schedule.
-        
+
         Parameters
         ==========
         person_data: pl.DataFrame
@@ -155,7 +155,8 @@ class Model:
         """
         # filter the schedule to current t, *then* join the unpivoted table
         # join schedule to correct agents
-        agent_data = person_data.join(
+        current_schedule = self.schedule_data.filter("t" == 0)
+        self.agent_data = person_data.join(
             schedule_data.filter(pl.col("t") == 0), on="schedule_id"
         )
 
@@ -240,31 +241,22 @@ class Model:
         agent_data = self.agent_data.join(
             self.schedule_data.filter(pl.col("t") == tick), on="schedule_id"
         )
-        # TODO we now have the agent's place type but not a way to get their place from that?
-        # TODO oh i just need to make the df for agents longer!
 
-        self.current_agent_data = agent_data.unpivot(
-            on=["evening_act", "cell", "cafeteria", "morning_act", "noon_act"],
-            index=~pl.selectors.by_name(
-                ["cell", "cafeteria", "morning_act", "noon_act", "evening_act"]
-            ),
-        ).filter(pl.col("variable") == pl.col("place_type"))
+        self.current_agent_data = (
+            agent_data.unpivot(
+                on=["evening_act", "cell", "cafeteria", "morning_act", "noon_act"],
+                index=~pl.selectors.by_name(
+                    ["cell", "cafeteria", "morning_act", "noon_act", "evening_act"]
+                ),
+                variable_name="current_place",
+            )
+            .filter(pl.col("variable") == pl.col("place_type"))
+            .drop("variable")
+        )
 
-        # TODO how do we get the counts in each specific place into the object?
+        # get counts for each state and place
+        counts = self.current_agent_data.group_by(["mod", "state", "place_type", "current_place"]).len()
 
-        # Sets the next place type (person place column idx) for each schedule
-        self.next_place_types[:] = self.schedule_data[self.schedule_idx]
-
-        # Set the current place for each person by
-        # 1. Getting the column idxs for the next places via next_place_idxs and each persons schedule_idx
-        # 2. Set the current place id column to the value in the selected next_place_column idxs
-        residents_next_place_types = self.next_place_types[
-            self.person_data[:, P_SCHEDULE_IDX]
-        ]
-        # TODO: This is what we need to change
-        self.person_data[:, P_CURRENT_PLACE_IDX] = self.person_data[
-            self.row_idxs, residents_next_place_types
-        ]
 
         # sets total persons in each place: unique place ids (which are also row indexs in place data),
         # and how many times they occur

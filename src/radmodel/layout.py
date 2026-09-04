@@ -102,7 +102,8 @@ class Layout:
 
     places_id_map: dict[int, int] = field(default_factory=dict)
     n_places = 0
-    place_data: ndarray = field(default_factory=lambda: zeros((), dtype=uint32))
+    place_data: pl.DataFrame = field(default_factory=pl.DataFrame)
+    # place_data: ndarray = field(default_factory=lambda: zeros((), dtype=uint32))
     modules: dict[int, Module] = field(default_factory=dict)
     shared_places: dict[str, SharedPlace] = field(default_factory=dict)
     cafeterias: dict[str, SharedPlace] = field(default_factory=dict)
@@ -150,49 +151,39 @@ class Layout:
         Parameters
         ==========
         path: str | os.PathLike
-            path to folder containing ng_places.csv
+            path to folder containing places.csv
         """
-        with open(os.path.join(path, "ng_places.csv")) as f:
-            self.n_places = len(f.readlines()) - 1
-        with open(os.path.join(path, "ng_places.csv")) as f:
-            self.place_data = zeros((self.n_places, 3), dtype=uint32)
-            i = 0
-            reader = csv.DictReader(f)
-            for r in reader:
-                place_type = r["type"]
-                subtype = r["subtype"]
-                if place_type == "facility":
-                    continue
-                n_id = int(r["place_id"])
-                self.places_id_map[n_id] = i
-                self.place_data[i, 0] = n_id
-                match place_type:
-                    case "facility":
-                        continue
-                    case "module":
-                        self.add_module(**r)
-                    case "cell":
-                        match subtype:
-                            case "gp":
-                                self.modules[int(r["parent_id"])].add_cell(**r)
-                                self.gp_count += 1
-                            case "mi":
-                                self.shared_modules["medical"].add_cell(**r)
-                            case "rh":
-                                self.shared_modules["segregation"].add_cell(**r)
-                    case _:
-                        if subtype in ["segregation", "medical"]:
-                            self.add_shared_module(**r)
-                        elif subtype == "dining_room":
-                            self.add_cafeterias(**r)
-                        elif subtype in ["shower", "dayroom"]:
-                            self.modules[int(r["parent_id"])].add_shared_place(**r)
-                        else:
-                            self.add_shared_place(**r)
-                i += 1
+        self.place_data = pl.read_csv(os.path.join(path, "places.csv"))
+        # TODO I assume there's a way to do this without looping, but I'm not sure how!
+        for row in self.place_data.filter(pl.col("type") == "module").to_dicts():
+            self.add_module(**row)
 
-    # def update_counts(self, place_data: pl.DataFrame):
+        for housing_type in ["restricted", "medical"]:
+            r = {"subtype": housing_type, "place_id": -1}
+            self.add_shared_module(**r)
 
+        for row in self.place_data.filter(
+            ~pl.col("type").is_in(["cell", "module", "facility"]),
+        ).to_dicts():
+            if row["subtype"] in ["rh", "mi"]:
+                self.add_shared_module(**row)
+            elif row["subtype"] == "dining_room":
+                self.add_cafeterias(**row)
+            elif row["subtype"] in ["shower", "dayroom"]:
+                self.modules[int(row["parent_id"])].add_shared_place(**row)
+            else:
+                self.add_shared_place(**row)
+
+        for row in self.place_data.filter(pl.col("type") == "cell").to_dicts():
+            match row["subtype"]:
+                case "gp":
+                    self.modules[int(row["parent_id"])].add_cell(**row)
+                    self.gp_count += 1
+                case "mi":
+                    self.shared_modules["medical"].add_cell(**row)
+                case "rh":
+                    self.shared_modules["restricted"].add_cell(**row)
+        self.place_data = self.place_data.with_columns(person_count=0, infected_count=0)
 
     @classmethod
     def load_from_csv(cls, data_dir: str | os.PathLike) -> "Layout":
