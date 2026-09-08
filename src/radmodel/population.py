@@ -125,45 +125,6 @@ class Places:
         return self.place_data[:, (PL_PERSON_COUNT_IDX, PL_INFECTED_COUNT_IDX)]
 
 
-def create_places(fname: str | os.PathLike) -> Places:
-    """Create places data array from CSV file.
-
-    Parameters
-    ==========
-    fname: str | os.PathLike
-        Path to the places CSV file.
-
-    Returns
-    =======
-    Places
-        Places object containing two pieces of information:
-        1. place_id_map: dict[int, int] - Mapping from place ID to index in the place array.
-        2. place_data: np.ndarray - 2d-array of shape (n_places, 3) containing place data,
-           where each row corresponds to a place and the columns are:
-            0: place ID
-            1: number of persons
-            2: number of infecteds
-    """
-    n_places = 0
-    with open(fname) as fin:
-        next(fin)
-        for _ in fin:
-            n_places += 1
-
-    # place_id, n_persons, n_infecteds
-    place_data = np.zeros((n_places, 3), dtype=np.uint32)
-    places_id_map = {}
-    with open(fname) as fin:
-        reader = csv.reader(fin)
-        next(reader)
-        for i, row in enumerate(reader):
-            n_id = int(row[0])
-            places_id_map[n_id] = i
-            place_data[i, 0] = n_id
-
-    return Places(places_id_map, place_data)
-
-
 def create_residents(
     fname: str,
 ) -> pl.DataFrame:

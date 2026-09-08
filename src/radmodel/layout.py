@@ -5,14 +5,12 @@ as queryable dataclasses. The simulation core does not yet consume this; it
 is descriptive metadata for future schedule/movement work.
 """
 
-import csv
 import os
 import string
 from dataclasses import dataclass, field
 from typing import TypeVar
 
 import polars as pl
-from numpy import ndarray, uint32, zeros
 
 T = TypeVar("T")
 
