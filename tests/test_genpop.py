@@ -2,41 +2,11 @@
 
 import os
 import string
-import pytest
 from collections import Counter
-from pandas import read_csv
 
-from genpop import generate_agents, generate_layout
-from radmodel.layout import Layout
+import polars as pl
 
-
-@pytest.fixture(scope="session")
-def fresh_layout(tmp_path_factory):
-    d = tmp_path_factory.mktemp("layout")
-    generate_layout.generate_places(
-        "./tests/test_params/module_no_overflow.yaml",
-        os.path.join(str(d), "ng_places.csv"),
-    )
-    layout = Layout()
-    layout.load_places(str(d))
-    return layout
-
-
-@pytest.fixture(scope="session")
-def places(tmp_path_factory):
-    d = tmp_path_factory.mktemp("layout")
-    generate_layout.generate_places(
-        "./tests/test_params/module_no_overflow.yaml",
-        os.path.join(str(d), "ng_places.csv"),
-    )
-    return read_csv(os.path.join(str(d), "ng_places.csv"))
-
-
-@pytest.fixture(scope="session")
-def params_no_overflow():
-    return generate_layout.get_params("./tests/test_params/module_no_overflow.yaml")[
-        "facility"
-    ]
+from genpop import generate_agents
 
 
 def test_module_count(fresh_layout, params_no_overflow):
@@ -82,7 +52,7 @@ def test_each_module_has_two_tiers_of_20(fresh_layout):
 
 
 def test_rh_cell_count(fresh_layout):
-    assert len(fresh_layout.shared_modules["segregation"].cells) == 30
+    assert len(fresh_layout.shared_modules["restricted"].cells) == 30
 
 
 def test_mi_cell_count(fresh_layout):
@@ -98,6 +68,8 @@ def test_shared_places_per_type(fresh_layout, params_no_overflow):
         "visit_room": 1,
         "chapel": 1,
         "barber": 1,
+        "medical": 1,
+        "segregation": 1,
     }
     values = [d.place_type for d in fresh_layout.shared_places.values()]
     assert dict(Counter(values)) == expected
@@ -117,3 +89,20 @@ def test_subplace_module(fresh_layout):
 
 def test_place_ids_globally_unique(places):
     assert len(places["place_id"]) == len(set(places["place_id"]))
+
+
+def test_generate_schedule():
+    schedule = generate_agents.generate_schedule(0)
+    assert schedule.select([pl.arg_where(pl.col("start") % 60 == 0)]).shape[0] == schedule.shape[0], "Not all activities are hourly"
+
+
+def test_generate_schedules(tmp_path_factory):
+    d = tmp_path_factory.mktemp("schedules")
+    generate_agents.generate_schedules(10, os.path.join(str(d), "schedules.csv"))
+    with open(os.path.join(str(d), "schedules.csv")) as f:
+        schedules = f.readlines()[1:]
+    schedule_ids = []
+    for line in schedules:
+        schedule_ids.append(line[0])
+
+    assert len(set(schedule_ids)) == 10, "Did not create correct number of schedules"

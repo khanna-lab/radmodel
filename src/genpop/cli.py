@@ -8,21 +8,6 @@ def cli():
     pass
 
 
-# @cli.command("create_cells")
-# @click.option(
-#     "-n",
-#     "--num-cells",
-#     type=click.INT,
-#     help="The number of persons to create",
-#     required=True,
-# )
-# @click.option(
-#     "-o",
-#     "--output_file",
-#     type=click.Path(),
-#     help="Path to write the cells to",
-#     required=True,
-# )
 @cli.command("create_persons")
 @click.option(
     "-n",
@@ -38,13 +23,13 @@ def cli():
     help="Path to the places file containing the places to assign to persons",
     required=True,
 )
-@click.option(
-    "-m",
-    "--module-definition-file",
-    type=click.Path(),
-    help="Path to the module definition file containing the module specific places to assign to persons",
-    required=True,
-)
+# @click.option(
+#     "-m",
+#     "--module-definition-file",
+#     type=click.Path(),
+#     help="Path to the module definition file containing the module specific places to assign to persons",
+#     required=True,
+# )
 @click.option(
     "-o",
     "--output_file",
@@ -53,9 +38,7 @@ def cli():
     required=True,
 )
 def create_persons(num_persons: int, places_file, output_file):
-    generate_agents.generate_persons(
-        num_persons, places_file, output_file
-    )
+    generate_agents.generate_agents(num_persons, places_file, output_file)
 
 
 @cli.command("create_schedules")

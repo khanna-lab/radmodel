@@ -1,31 +1,17 @@
-import csv
 import os
 import random
+
+import polars as pl
 
 from radmodel.layout import Layout
 
 
-def parse_schedule_ids(schedules_file: str | os.PathLike) -> list[int]:
-    with open(schedules_file) as fin:
-        reader = csv.reader(fin)
-        header = next(reader)
-        id_idx = header.index("schedule_id")
-        ids = [int(row[id_idx]) for row in reader]
-
-    return ids
-
-
-def get_layout(places_file):
-    layout = Layout()
-    layout.load_places(places_file)
-    return layout
-
-
-def generate_persons(
+def generate_agents(
     num_persons: int,
     places_file: str | os.PathLike,
-    output_file: str | os.PathLike,
-):
+    output_file: str | os.PathLike | None = None,
+    save_output: bool = True,
+) -> pl.DataFrame:
     """Generate agents with the given parameters.
 
     Parameters
@@ -39,15 +25,14 @@ def generate_persons(
 
     Returns
     =======
-    list
-        A list of agent data
+    pl.Dataframe
+        Agent data
     """
     print("Warning: Using Single Schedule 0")
 
-    layout = get_layout(places_file)
+    layout = Layout.load_from_csv(places_file)
     n_mods = len(layout.modules)
     agents_per_module = num_persons // n_mods
-    agent_id = 0
     cell_idx = 0
     agents = []
 
@@ -64,44 +49,34 @@ def generate_persons(
             morning_activity = random.choice(list(layout.shared_places.values()))
             afternoon_activity = random.choice(list(layout.shared_places.values()))
             evening_activity = random.choice(list(layout.shared_places.values()))
+            # n.b. making and printing a concat df doesn't make sense until we remove intermediate i/o
             agents.append(
-                {
-                    "person_id": agent_id,
-                    "module_id": module_id,
-                    "cell_place_id": cell.place_id,
-                    "morning_act_name": morning_activity.name,
-                    "afternoon_act_name": afternoon_activity.name,
-                    "evening_act_name": evening_activity.name,
-                    "schedule_id": schedule_id,
-                    "cafeteria": cafeteria,
-                }
+                pl.DataFrame(
+                    {
+                        "person_id": i,
+                        "module_id": module_id,
+                        "cell_place_id": cell.place_id,
+                        "morning_act_name": morning_activity.name,
+                        "afternoon_act_name": afternoon_activity.name,
+                        "evening_act_name": evening_activity.name,
+                        "schedule_id": schedule_id,
+                        "cafeteria": cafeteria.place_id,
+                    }
+                )
             )
-            agent_id += 1
+            
             cell_idx += 1
             if cell_idx == len(module.cells):
                 cell_idx = 0
 
-    with open(output_file, "w") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=[
-                "person_id",
-                "module_id",
-                "cell_place_id",
-                "morning_act_name",
-                "afternoon_act_name",
-                "evening_act_name",
-                "schedule_id",
-                "cafeteria",
-            ],
-        )
-        writer.writeheader()
-        for i in agents:
-            writer.writerow(i)
-    return agents
+    agents_df = pl.concat(agents)
+    if save_output:
+        agents_df.write_csv(output_file)
+
+    return agents_df
 
 
-def generate_schedule(schedule_id: int) -> list[tuple[int, int, str, int]]:
+def generate_schedule(schedule_id: int) -> pl.DataFrame:
     """Generates a schedule for an agent.
 
     Parameters
@@ -110,37 +85,42 @@ def generate_schedule(schedule_id: int) -> list[tuple[int, int, str, int]]:
         A number indicating the baseline schedule the agent adheres to
 
     Returns
-    list[tuple[int, int, str, int]]
-        The agent's schedule
+    pl.DataFrame
+        Schedule information
     """
     # in cell from midnight to 6AM, 7PM to midnight
-    acts = [(schedule_id, 0, "cell", 1), (schedule_id, 19 * 60, "cell", 1)]
+    # acts = [(schedule_id, 0, "cell", 1), (schedule_id, 19 * 60, "cell", 1)]
+    acts = {
+        "schedule_id": schedule_id,
+        "start": [0, 19 * 60],
+        "place_type": ["cell", "cell"],
+        "risk": 1,
+    }
 
     breakfast = random.choice([6, 7])
     lunch = random.choice([11, 12, 13])
     dinner = random.choice([17, 18])
 
-    acts += [
-        (schedule_id, breakfast * 60, "cafeteria", 1),
-        (schedule_id, lunch * 60, "cafeteria", 1),
-        [schedule_id, dinner * 60, "cafeteria", 1],
-    ]
+    acts["start"] += [breakfast * 60, lunch * 60, dinner * 60]
+    acts["place_type"] += ["cafeteria"] * 3
 
+    # acts = pl.DataFrame(acts)
     # activities between breakfast and lunch
-    morning_acts = [
-        (schedule_id, h * 60, "activity", 1) for h in range(breakfast + 1, lunch)
-    ]
-    afternoon_acts = [
-        (schedule_id, h * 60, random.choice(["outdoor", "activity", "activity"]), 1)
-        for h in range(lunch + 1, dinner)
-    ]
-    acts += morning_acts + afternoon_acts
+    morning_acts = [a*60 for a in range(breakfast + 1, lunch)]
+    acts["start"] += morning_acts
+    acts["place_type"] += ["morning_act"] * len(morning_acts)
+    for a in range(lunch + 1, dinner):
+        acts["start"].append(a * 60)
+        acts["place_type"].append(random.choice(["outdoor", "noon_act", "noon_act"]))
 
-    acts.sort(key=lambda x: x[1])
-    return acts
+    acts_df = pl.DataFrame(acts)
+    acts_df.sort(by="start")
+    # TODO are there evening acts?
+
+    return acts_df
 
 
-def generate_schedules(num_schedules: int, output_file: str | os.PathLike):
+def generate_schedules(num_schedules: int, output_file: str) -> pl.DataFrame:
     """Generates all baseline schedules.
 
     Parameters
@@ -150,10 +130,6 @@ def generate_schedules(num_schedules: int, output_file: str | os.PathLike):
     output_file
         File location to save.
     """
-    with open(output_file, "w") as fout:
-        writer = csv.writer(fout)
-        writer.writerow(["schedule_id", "start", "place_type", "risk"])
-
-        for i in range(num_schedules):
-            acts = generate_schedule(i)
-            writer.writerows(acts)
+    dfs = pl.concat([generate_schedule(i) for i in range(num_schedules)])
+    dfs.write_csv(output_file)
+    return dfs
