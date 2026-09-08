@@ -14,7 +14,7 @@ def fresh_layout(tmp_path_factory):
     d = tmp_path_factory.mktemp("layout")
     generate_layout.generate_places(
         "./tests/test_params/module_no_overflow.yaml",
-        os.path.join(str(d), "ng_places.csv"),
+        os.path.join(str(d), "places.csv"),
     )
     layout = Layout()
     layout.load_places(str(d))
@@ -26,9 +26,9 @@ def places(tmp_path_factory):
     d = tmp_path_factory.mktemp("layout")
     generate_layout.generate_places(
         "./tests/test_params/module_no_overflow.yaml",
-        os.path.join(str(d), "ng_places.csv"),
+        os.path.join(str(d), "places.csv"),
     )
-    return read_csv(os.path.join(str(d), "ng_places.csv"))
+    return read_csv(os.path.join(str(d), "places.csv"))
 
 
 @pytest.fixture(scope="session")
