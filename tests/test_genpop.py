@@ -4,6 +4,8 @@ import os
 import string
 from collections import Counter
 
+import polars as pl
+
 from genpop import generate_agents
 
 
@@ -50,7 +52,7 @@ def test_each_module_has_two_tiers_of_20(fresh_layout):
 
 
 def test_rh_cell_count(fresh_layout):
-    assert len(fresh_layout.shared_modules["segregation"].cells) == 30
+    assert len(fresh_layout.shared_modules["restricted"].cells) == 30
 
 
 def test_mi_cell_count(fresh_layout):
@@ -66,6 +68,8 @@ def test_shared_places_per_type(fresh_layout, params_no_overflow):
         "visit_room": 1,
         "chapel": 1,
         "barber": 1,
+        "medical": 1,
+        "segregation": 1,
     }
     values = [d.place_type for d in fresh_layout.shared_places.values()]
     assert dict(Counter(values)) == expected
@@ -87,12 +91,9 @@ def test_place_ids_globally_unique(places):
     assert len(places["place_id"]) == len(set(places["place_id"]))
 
 
-
 def test_generate_schedule():
     schedule = generate_agents.generate_schedule(0)
-    for activity in schedule:
-        assert activity[1] % 60 == 0, "Activities should be hourly"
-
+    assert schedule.select([pl.arg_where(pl.col("start") % 60 == 0)]).shape[0] == schedule.shape[0], "Not all activities are hourly"
 
 
 def test_generate_schedules(tmp_path_factory):
