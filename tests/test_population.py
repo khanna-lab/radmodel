@@ -17,9 +17,9 @@ def test_create_schedules():
 
 def test_create_residents():
     residents = create_residents("./tests/test_params/residents.csv")
-    assert residents.shape[0] == residents.unique("agent_id").select(pl.len()).item(
+    assert residents.shape[1] == residents.unique("person_id").select(pl.len()).item(
         0, 0
-    )
+    ), "Agent ids not unique."
 
 
 def test_update_infected_counts():
