@@ -1,7 +1,7 @@
 import polars as pl
 
 from radmodel.layout import Layout
-from radmodel.population import create_residents, create_schedules, Places
+from radmodel.population import Places, create_residents, create_schedules
 
 
 def test_create_schedules():
