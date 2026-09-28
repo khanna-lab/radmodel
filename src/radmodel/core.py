@@ -21,7 +21,6 @@ from .common import (
 from .population import (
     P_CURRENT_PLACE_IDX,
     P_NEXT_STATE_T_IDX,
-    P_SCHEDULE_IDX,
     P_STATE_IDX,
     Places,
 )
@@ -155,13 +154,12 @@ class Model:
         """
         # filter the schedule to current t, *then* join the unpivoted table
         # join schedule to correct agents
-        current_schedule = self.schedule_data.filter("t" == 0)
         self.agent_data = person_data.join(
-            schedule_data.filter(pl.col("t") == 0), on="schedule_id"
+            self.schedule_data.filter(pl.col("t") == 0), on="schedule_id"
         )
 
         # add correct location information for each t
-        self.agent_data = agent_data.unpivot(
+        self.agent_data = self.agent_data.unpivot(
             on=["evening_act", "cell", "cafeteria", "morning_act", "noon_act"],
             index=~pl.selectors.by_name(
                 ["cell", "cafeteria", "morning_act", "noon_act", "evening_act"]
@@ -255,8 +253,9 @@ class Model:
         )
 
         # get counts for each state and place
-        counts = self.current_agent_data.group_by(["mod", "state", "place_type", "current_place"]).len()
-
+        counts = self.current_agent_data.group_by(
+            ["mod", "state", "place_type", "current_place"]
+        ).len()
 
         # sets total persons in each place: unique place ids (which are also row indexs in place data),
         # and how many times they occur
