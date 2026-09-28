@@ -209,10 +209,10 @@ class Model:
         # write at the end of every day (4 * 24)
         self.runner.schedule_repeating_event(96.1, 96, self.data_set.write)
 
-    def at_end(self):
+    def at_end(self) -> None:
         self.data_set.close()
 
-    def select_next_place(self, tick: int):
+    def select_next_place(self, tick: int) -> None:
         """Select the next place for each person based on their schedule.
 
         Parameters
@@ -277,7 +277,7 @@ class Model:
         )
         self.place_data.update_infected_counts(places, counts)
 
-    def update_disease_state(self, tick: int):
+    def update_disease_state(self, tick: int) -> None:
         # TODO this needs to be updated to calculate based on a df + the place counts e.g.
         # for location:
         #    if location.infected > 0 and location.susceptible > 0
@@ -428,7 +428,7 @@ class Model:
         self.data_set.log(tick)
         self.counts_by_place.log_counts(tick, self.place_data)
 
-    def step(self):
+    def step(self) -> None:
         # TODO I think this needs to iterate through each agent and 1. update disease state, 2. update location
         self.counts.reset()
 

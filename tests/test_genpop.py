@@ -93,7 +93,10 @@ def test_place_ids_globally_unique(places):
 
 def test_generate_schedule():
     schedule = generate_agents.generate_schedule(0)
-    assert schedule.select([pl.arg_where(pl.col("start") % 60 == 0)]).shape[0] == schedule.shape[0], "Not all activities are hourly"
+    assert (
+        schedule.select([pl.arg_where(pl.col("start") % 60 == 0)]).shape[0]
+        == schedule.shape[0]
+    ), "Not all activities are hourly"
 
 
 def test_generate_schedules(tmp_path_factory):
@@ -106,3 +109,7 @@ def test_generate_schedules(tmp_path_factory):
         schedule_ids.append(line[0])
 
     assert len(set(schedule_ids)) == 10, "Did not create correct number of schedules"
+
+
+def test_generate_agents(agents, params_no_overflow):
+    assert agents.shape == (params_no_overflow["residents"]["count"], 8)
