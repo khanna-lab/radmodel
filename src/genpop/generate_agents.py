@@ -1,6 +1,7 @@
 import os
 import random
 
+import numpy as np
 import polars as pl
 
 from radmodel.layout import Layout
@@ -9,7 +10,7 @@ from radmodel.layout import Layout
 def generate_agents(
     num_persons: int,
     places_file: str | os.PathLike,
-    output_file: str | os.PathLike | None = None,
+    output_file: str | None = None,
     save_output: bool = True,
 ) -> pl.DataFrame:
     """Generate agents with the given parameters.
@@ -33,43 +34,31 @@ def generate_agents(
     layout = Layout.load_from_csv(places_file)
     n_mods = len(layout.modules)
     agents_per_module = num_persons // n_mods
-    cell_idx = 0
-    agents = []
+    cells_per_module = layout.gp_count % n_mods
 
-    for module_id, module in layout.modules.items():
-        # TODO too few values to ensure even distribution, this should be redone
-        cafeteria = random.choice(
-            list(layout.cafeterias.values())
-        )  # cafeteria is for whole module
+    # create dataframe with modules
+    agents_df = pl.DataFrame(
+        {
+            "module_id": np.repeat(
+                [module_id for module_id in layout.modules], agents_per_module
+            ),
+            "schedule_id": 0,
+            "cafeteria": 0,  # TODO I'm still not sure how to handle cafeteria
+        }
+    )
 
-        for i in range(agents_per_module):
-            cell = module.cells[cell_idx]
-            schedule_id = 0  # TODO need multiple schedule ids?
+    morning = random.choices(list(layout.shared_places.values()), k=agents_df.shape[0])
+    afternoon = random.choices(list(layout.shared_places.values()), k=agents_df.shape[0])
+    evening = random.choices(list(layout.shared_places.values()), k=agents_df.shape[0])
 
-            morning_activity = random.choice(list(layout.shared_places.values()))
-            afternoon_activity = random.choice(list(layout.shared_places.values()))
-            evening_activity = random.choice(list(layout.shared_places.values()))
-            # n.b. making and printing a concat df doesn't make sense until we remove intermediate i/o
-            agents.append(
-                pl.DataFrame(
-                    {
-                        "person_id": i,
-                        "module_id": module_id,
-                        "cell_place_id": cell.place_id,
-                        "morning_act_name": morning_activity.name,
-                        "afternoon_act_name": afternoon_activity.name,
-                        "evening_act_name": evening_activity.name,
-                        "schedule_id": schedule_id,
-                        "cafeteria": cafeteria.place_id,
-                    }
-                )
-            )
-            
-            cell_idx += 1
-            if cell_idx == len(module.cells):
-                cell_idx = 0
+    # add activities, ids, and cell numbers to dataframe
+    agents_df = agents_df.with_columns(
+        agent_id=pl.int_range(pl.len()),
+        morning_act_name=morning,
+        afternoon_act_name=afternoon,
+        evening_act_name=evening,
+    ).with_columns(cell_place_id=pl.col("agent_id") % cells_per_module)
 
-    agents_df = pl.concat(agents)
     if save_output:
         agents_df.write_csv(output_file)
 
@@ -106,7 +95,7 @@ def generate_schedule(schedule_id: int) -> pl.DataFrame:
 
     # acts = pl.DataFrame(acts)
     # activities between breakfast and lunch
-    morning_acts = [a*60 for a in range(breakfast + 1, lunch)]
+    morning_acts = [a * 60 for a in range(breakfast + 1, lunch)]
     acts["start"] += morning_acts
     acts["place_type"] += ["morning_act"] * len(morning_acts)
     for a in range(lunch + 1, dinner):
