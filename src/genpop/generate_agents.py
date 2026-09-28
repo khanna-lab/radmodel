@@ -48,7 +48,9 @@ def generate_agents(
     )
 
     morning = random.choices(list(layout.shared_places.values()), k=agents_df.shape[0])
-    afternoon = random.choices(list(layout.shared_places.values()), k=agents_df.shape[0])
+    afternoon = random.choices(
+        list(layout.shared_places.values()), k=agents_df.shape[0]
+    )
     evening = random.choices(list(layout.shared_places.values()), k=agents_df.shape[0])
 
     # add activities, ids, and cell numbers to dataframe

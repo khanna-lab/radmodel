@@ -46,7 +46,7 @@ where = ["src"]
 # exclude = ["Dockerfiles*", "scripts*", "workflow*"]
 
 [tool.ruff]
-extend-select = ["Q"]
+lint.extend-select = ["Q"]
 
 [tool.pytest.ini_options]
     pythonpath = [
