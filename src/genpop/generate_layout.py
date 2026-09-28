@@ -195,7 +195,7 @@ def generate_cell_assignments(
         cell["occupants"] = cell["occupants"] + 1 if cell.get("occupants") else 1
         rows.append(
             {
-                "person_id": i,
+                "agent_id": i,
                 "module_id": cell["parent_id"],
                 "cell_place_id": cell["place_id"],
                 "bunk_position": bunk_names[cell["occupants"] - 1],
@@ -207,7 +207,7 @@ def generate_cell_assignments(
         writer = csv.DictWriter(
             fout,
             fieldnames=[
-                "person_id",
+                "agent_id",
                 "module_id",
                 "cell_place_id",
                 "bunk_position",
