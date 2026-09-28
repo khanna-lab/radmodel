@@ -34,7 +34,7 @@ def generate_agents(
     layout = Layout.load_from_csv(places_file)
     n_mods = len(layout.modules)
     agents_per_module = num_persons // n_mods
-    cells_per_module = layout.gp_count % n_mods
+    cells_per_module = layout.gp_count // n_mods
 
     # create dataframe with modules
     agents_df = pl.DataFrame(
@@ -46,20 +46,22 @@ def generate_agents(
             "cafeteria": 0,  # TODO I'm still not sure how to handle cafeteria
         }
     )
+    place_types = [item.place_id for item in layout.shared_places.values()]
 
-    morning = random.choices(list(layout.shared_places.values()), k=agents_df.shape[0])
-    afternoon = random.choices(
-        list(layout.shared_places.values()), k=agents_df.shape[0]
-    )
-    evening = random.choices(list(layout.shared_places.values()), k=agents_df.shape[0])
+    morning = random.choices(place_types, k=agents_df.shape[0])
+    afternoon = random.choices(place_types, k=agents_df.shape[0])
+    evening = random.choices(place_types, k=agents_df.shape[0])
+    # assert False, agents_df
 
     # add activities, ids, and cell numbers to dataframe
     agents_df = agents_df.with_columns(
         agent_id=pl.int_range(pl.len()),
-        morning_act_name=morning,
-        afternoon_act_name=afternoon,
-        evening_act_name=evening,
-    ).with_columns(cell_place_id=pl.col("agent_id") % cells_per_module)
+        morning_act_name=pl.Series(morning),
+        afternoon_act_name=pl.Series(afternoon),
+        evening_act_name=pl.Series(evening),
+        cell_place_id=pl.col("module_id").cum_count().over("module_id")
+        % cells_per_module,
+    )
 
     if save_output:
         agents_df.write_csv(output_file)

@@ -1,14 +1,6 @@
 import numpy as np
 import polars as pl
 
-# P_DATA_ID_IDX = 0
-P_DATA_SCHEDULE_IDX = 1
-P_DATA_CELL_IDX = 2
-P_DATA_CAF_IDX = 3
-P_DATA_MACT_IDX = 4
-P_DATA_NACT_IDX = 5
-P_DATA_EACT_IDX = 6
-
 # P_ACTS_COUNT = 2
 # P_CAFS_COUNT = 2
 
@@ -68,7 +60,7 @@ class Places:
         """
         self.place_data = place_data
 
-    def update_counts(self, places: np.ndarray, counts: np.ndarray):
+    def update_counts(self, places: np.ndarray, counts: np.ndarray) -> None:
         """Update the counts of persons in the specified places.
 
         Parameters
@@ -81,7 +73,7 @@ class Places:
 
         self.place_data[places, PL_PERSON_COUNT_IDX] = counts
 
-    def update_infected_counts(self, counts: pl.DataFrame):
+    def update_infected_counts(self, counts: pl.DataFrame) -> None:
         """Update the counts of infected persons in the specified places.
 
         Parameters
@@ -93,7 +85,7 @@ class Places:
         """
         self.place_data = self.place_data.update(counts, on="place_id")
 
-    def get_counts(self, place_idxs: np.ndarray):
+    def get_counts(self, place_idxs: np.ndarray) -> np.ndarray:
         """Get the counts of persons and infected persons for the specified places.
 
         Parameters
@@ -140,7 +132,20 @@ def create_residents(
         Dataframe containing resident data.
     """
     residents = pl.read_csv(fname)
+    # TODO this might not be the best place for this—could want to use it elsewhere as well (transition matrix?)
+    state_enum = pl.Enum(
+        [
+            "susceptible",
+            "exposed",
+            "presymptomatic",
+            "infected_asymp",
+            "infected_symp",
+            "recovered",
+            "hospitalized",
+            "dead",
+        ]
+    )
     return residents.with_columns(
-        pl.lit("susceptible").alias("state"),
+        pl.lit("susceptible").cast(state_enum).alias("state"),
         pl.lit(np.iinfo(np.uint32).max).alias("next_transition"),
     )
