@@ -36,6 +36,11 @@ def generate_agents(
     agents_per_module = num_persons // n_mods
     cells_per_module = layout.gp_count // n_mods
 
+    # generate activities for each agent
+    place_types = [item.place_id for item in layout.shared_places.values()]
+    morning = random.choices(place_types, k=num_persons)
+    afternoon = random.choices(place_types, k=num_persons)
+    evening = random.choices(place_types, k=num_persons)
     # create dataframe with modules
     agents_df = pl.DataFrame(
         {
@@ -44,21 +49,15 @@ def generate_agents(
             ),
             "schedule_id": 0,
             "cafeteria": 0,  # TODO I'm still not sure how to handle cafeteria
+            "morning_act_name": pl.Series(morning),
+            "afternoon_act_name": pl.Series(afternoon),
+            "evening_act_name": pl.Series(evening),
         }
     )
-    place_types = [item.place_id for item in layout.shared_places.values()]
 
-    morning = random.choices(place_types, k=agents_df.shape[0])
-    afternoon = random.choices(place_types, k=agents_df.shape[0])
-    evening = random.choices(place_types, k=agents_df.shape[0])
-    # assert False, agents_df
-
-    # add activities, ids, and cell numbers to dataframe
+    # add agent ids, and cell numbers to dataframe
     agents_df = agents_df.with_columns(
         agent_id=pl.int_range(pl.len()),
-        morning_act_name=pl.Series(morning),
-        afternoon_act_name=pl.Series(afternoon),
-        evening_act_name=pl.Series(evening),
         cell_place_id=pl.col("module_id").cum_count().over("module_id")
         % cells_per_module,
     )

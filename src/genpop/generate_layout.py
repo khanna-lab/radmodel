@@ -172,7 +172,7 @@ def generate_cell_assignments(
         All cells in the model
     output_file: str | os.PathLike
         File location to save outputs
-    
+
     Returns
     =======
     list[dict]
