@@ -68,8 +68,6 @@ def test_shared_places_per_type(fresh_layout, params_no_overflow):
         "visit_room": 1,
         "chapel": 1,
         "barber": 1,
-        "medical": 1,
-        "segregation": 1,
     }
     values = [d.place_type for d in fresh_layout.shared_places.values()]
     assert dict(Counter(values)) == expected
@@ -111,5 +109,25 @@ def test_generate_schedules(tmp_path_factory):
     assert len(set(schedule_ids)) == 10, "Did not create correct number of schedules"
 
 
-def test_generate_agents(agents, params_no_overflow):
+def test_generate_agents_cells(agents, params_no_overflow):
     assert agents.shape == (params_no_overflow["residents"]["count"], 8)
+    assert (
+        agents.group_by(["module_id", "cell_place_id"]).len().max()["len"] == 2
+    ).all(), "Cells should house max 2 agents"
+
+
+def test_generate_agents_activities(agents):
+    num_morning = agents.unique(subset="morning_act_name").shape[0]
+    num_afternoon = agents.unique(subset="afternoon_act_name").shape[0]
+    num_evening = agents.unique(subset="evening_act_name").shape[0]
+    # TODO technically this is stochastic (small probability num_morning is 1)
+    # but I'd like to test to make sure it's not accidentally only running one random and filling all rows
+    assert num_morning > 1 and num_morning <= 7, (
+        f"There should be fewer than 7 activities, found {num_morning}"
+    )
+    assert num_afternoon > 1 and num_afternoon <= 7, (
+        f"There should be fewer than 7 activities, found {num_afternoon}"
+    )
+    assert num_evening > 1 and num_evening <= 7, (
+        f"There should be fewer than 7 activities, found {num_evening}"
+    )
