@@ -163,16 +163,17 @@ class Layout:
         for row in self.place_data.filter(
             ~pl.col("type").is_in(["cell", "module", "facility"]),
         ).to_dicts():
-            if row["subtype"] in ["rh", "mi"]:
-                self.add_shared_module(**row)
-            elif row["subtype"] == "dining_room":
-                self.add_cafeterias(**row)
-            elif row["subtype"] in ["shower", "dayroom"]:
-                self.modules[int(row["parent_id"])].add_shared_place(**row)
-            elif row["subtype"] in ["medical", "segregation"]:
-                pass
-            else:
-                self.add_shared_place(**row)
+            match row["subtype"]:
+                case "rh" | "mi":
+                    self.add_shared_module(**row)
+                case "dining_room":
+                    self.add_cafeterias(**row)
+                case "shower" | "dayroom":
+                    self.modules[int(row["parent_id"])].add_shared_place(**row)
+                case "medical" | "segregation":
+                    pass
+                case _:
+                    self.add_shared_place(**row)
 
         for row in self.place_data.filter(pl.col("type") == "cell").to_dicts():
             match row["subtype"]:
