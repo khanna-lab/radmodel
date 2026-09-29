@@ -3,7 +3,7 @@ import click
 from genpop import generate_agents, generate_layout
 
 
-@click.group(context_settings=dict(help_option_names=["-h", "--help"]))
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
 def cli():
     pass
 
@@ -23,13 +23,6 @@ def cli():
     help="Path to the places file containing the places to assign to persons",
     required=True,
 )
-# @click.option(
-#     "-m",
-#     "--module-definition-file",
-#     type=click.Path(),
-#     help="Path to the module definition file containing the module specific places to assign to persons",
-#     required=True,
-# )
 @click.option(
     "-o",
     "--output_file",

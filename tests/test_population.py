@@ -28,8 +28,18 @@ def test_update_infected_counts():
     places.update_infected_counts(
         pl.DataFrame({"place_id": [1002], "infected_count": [20]})
     )
-    assert places.place_data.filter(pl.col("place_id") == 1002).select("infected_count").item(0,0) == 20, "Infected count did not update."
-    all_zero = places.place_data.filter(pl.col("place_id")!=1002).select("infected_count")
-    assert all_zero.unique("infected_count").shape[0] == 1, "Some incorrect infection counts updated."
-    assert all_zero.select("infected_count").item(0,0) == 0, "Incorrect infection counts updated."
-
+    assert (
+        places.place_data.filter(pl.col("place_id") == 1002)
+        .select("infected_count")
+        .item(0, 0)
+        == 20
+    ), "Infected count did not update."
+    all_zero = places.place_data.filter(pl.col("place_id") != 1002).select(
+        "infected_count"
+    )
+    assert all_zero.unique("infected_count").shape[0] == 1, (
+        "Some incorrect infection counts updated."
+    )
+    assert all_zero.select("infected_count").item(0, 0) == 0, (
+        "Incorrect infection counts updated."
+    )
