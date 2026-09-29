@@ -1,4 +1,5 @@
 import os
+import random
 
 import pytest
 from pandas import read_csv
@@ -40,6 +41,8 @@ def params_no_overflow():
 
 @pytest.fixture(scope="session")
 def agents(tmp_path_factory):
+    # set seed for reproducibility
+    random.seed(1)
     d = tmp_path_factory.mktemp("agents")
     return generate_agents.generate_agents(
         100, "./tests/test_params", os.path.join(str(d), "residents.csv")

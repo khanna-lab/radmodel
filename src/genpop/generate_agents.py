@@ -80,8 +80,6 @@ def generate_schedule(schedule_id: int) -> pl.DataFrame:
     pl.DataFrame
         Schedule information
     """
-    # in cell from midnight to 6AM, 7PM to midnight
-    # acts = [(schedule_id, 0, "cell", 1), (schedule_id, 19 * 60, "cell", 1)]
     acts = {
         "schedule_id": schedule_id,
         "start": [0, 19 * 60],

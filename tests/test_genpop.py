@@ -120,8 +120,7 @@ def test_generate_agents_activities(agents):
     num_morning = agents.unique(subset="morning_act_name").shape[0]
     num_afternoon = agents.unique(subset="afternoon_act_name").shape[0]
     num_evening = agents.unique(subset="evening_act_name").shape[0]
-    # TODO technically this is stochastic (small probability num_morning is 1)
-    # but I'd like to test to make sure it's not accidentally only running one random and filling all rows
+
     assert num_morning > 1 and num_morning <= 7, (
         f"There should be fewer than 7 activities, found {num_morning}"
     )
