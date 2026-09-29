@@ -143,7 +143,7 @@ class Layout:
             }
         )
 
-    def load_places(self, path: str | os.PathLike):
+    def load_places(self, path: str | os.PathLike) -> None:
         """Loads the csv generated from the generate.generate_places function.
 
         Parameters
@@ -156,25 +156,28 @@ class Layout:
         for row in self.place_data.filter(pl.col("type") == "module").to_dicts():
             self.add_module(**row)
 
+        # Add shared 'modules' for non-gp cells
         for housing_type in ["restricted", "medical"]:
             r = {"subtype": housing_type, "place_id": -1}
             self.add_shared_module(**r)
 
+        # add places other than cells
         for row in self.place_data.filter(
             ~pl.col("type").is_in(["cell", "module", "facility"]),
         ).to_dicts():
             match row["subtype"]:
-                case "rh" | "mi":
-                    self.add_shared_module(**row)
                 case "dining_room":
                     self.add_cafeterias(**row)
                 case "shower" | "dayroom":
                     self.modules[int(row["parent_id"])].add_shared_place(**row)
-                case "medical" | "segregation":
+                case (
+                    "medical" | "segregation"
+                ):  # medical and segregation units added separately
                     pass
                 case _:
                     self.add_shared_place(**row)
 
+        # add cells
         for row in self.place_data.filter(pl.col("type") == "cell").to_dicts():
             match row["subtype"]:
                 case "gp":

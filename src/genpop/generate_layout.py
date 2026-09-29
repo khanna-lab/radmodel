@@ -10,7 +10,9 @@ def get_params(mod_def_file):
         return yaml.safe_load(fin)
 
 
-def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathLike):
+def generate_places(
+    mod_def_file: str | os.PathLike, output_file: str | os.PathLike
+) -> None:
     """Generates a csv containing all places, fields:
     place_id | name | type | subtype | tier | capacity | parent_id
 
@@ -29,9 +31,7 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
     module_name = module["name"]
     n_modules = module["modules"]["count"]
     module_letters = [string.ascii_uppercase[i] for i in range(n_modules)]
-    tiers = module["tiers"]
     gp_cells = module["cells"]["gp"]
-    special_cells = module["cells"]["special"]
     subplaces = module["subplaces"]
     shared_places = module["shared_places"]
 
@@ -51,7 +51,7 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
     rows = [
         {
             "place_id": facility_id,
-            "name": module_name,
+            "name": module["name"],
             "type": "facility",
             "parent_id": "",
         }
@@ -83,7 +83,7 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
 
     for letter in module_letters:
         parent_id = module_parent_by_letter[letter]
-        for tier in tiers:
+        for tier in module["tiers"]:
             tier_name = tier["name"]
             cells_per_tier = tier["cells_per_tier"]
             for n in range(1, cells_per_tier + 1):
@@ -100,7 +100,9 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
                 )
                 cell_id += 1
 
-    for special in special_cells:  # cells outside the general population category
+    for special in module["cells"][
+        "special"
+    ]:  # cells outside the general population category
         housing_category = special["housing_category"]
         place_type = housing_category.lower()
         if housing_category == "RH":
@@ -154,5 +156,70 @@ def generate_places(mod_def_file: str | os.PathLike, output_file: str | os.PathL
         writer.writerows(rows)
 
 
-if __name__ == "__main__":
-    generate_places("params/module_definition.yaml", "data/ng_places.csv")
+def generate_cell_assignments(
+    mod_def_file, cells: list[dict], output_file: str | os.PathLike
+) -> list[dict]:
+    """Generates a cell assignment for each agent.
+
+    Parameters
+    ==========
+    module_def_file: str | os.PathLike
+        Path to a .yaml file containing parameters to define the setting
+    cells: list[dict]
+        All cells in the model
+    output_file: str | os.PathLike
+        File location to save outputs
+
+    Returns
+    =======
+    list[dict]
+        Cell assignment for each agent
+    """
+    data = get_params(mod_def_file)
+    module = data.get("facility")
+    assert module is not None
+    n_residents = module["residents"]["count"]
+
+    # determine number of cells and check capacity
+    gp_cells = [c for c in cells if c.get("subtype") == "gp"]
+    total_capacity = sum(c["overflow_capacity"] for c in gp_cells)
+    if total_capacity < n_residents:
+        raise ValueError(f"GP capacity {total_capacity} < residents {n_residents}")
+
+    rows: list[dict] = []
+    bunk_names = ["bottom", "top", "third"]
+
+    # create cells and assign agents
+    for i in range(n_residents):
+        cell = gp_cells.pop(0)
+        cell["occupants"] = cell["occupants"] + 1 if cell.get("occupants") else 1
+        rows.append(
+            {
+                "agent_id": i,
+                "module_id": cell["parent_id"],
+                "cell_place_id": cell["place_id"],
+                "bunk_position": bunk_names[cell["occupants"] - 1],
+            }
+        )
+        if cell["occupants"] < cell["overflow_capacity"]:
+            gp_cells.append(cell)
+    with open(output_file, "w") as fout:
+        writer = csv.DictWriter(
+            fout,
+            fieldnames=[
+                "agent_id",
+                "module_id",
+                "cell_place_id",
+                "bunk_position",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+    return rows
+
+
+def generate_residents(
+    mod_def_file, places: list[dict], output_file: str | os.PathLike
+):
+    generate_cell_assignments(mod_def_file, places, output_file)

@@ -41,7 +41,8 @@ def generate_agents(
     morning = random.choices(place_types, k=num_persons)
     afternoon = random.choices(place_types, k=num_persons)
     evening = random.choices(place_types, k=num_persons)
-    # create dataframe with modules
+
+    # create base dataframe
     agents_df = pl.DataFrame(
         {
             "module_id": np.repeat(
