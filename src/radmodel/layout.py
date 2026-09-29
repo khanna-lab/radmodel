@@ -169,6 +169,8 @@ class Layout:
                 self.add_cafeterias(**row)
             elif row["subtype"] in ["shower", "dayroom"]:
                 self.modules[int(row["parent_id"])].add_shared_place(**row)
+            elif row["subtype"] in ["medical", "segregation"]:
+                pass
             else:
                 self.add_shared_place(**row)
 
