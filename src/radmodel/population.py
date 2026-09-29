@@ -102,14 +102,15 @@ class Places:
             np.ix_(place_idxs, (PL_PERSON_COUNT_IDX, PL_INFECTED_COUNT_IDX))  # type: ignore
         ]
 
-    def get_all_counts(self):
+    def get_all_counts(self) -> pl.DataFrame:
         """Get the counts of persons and infected persons for all places.
 
         Returns
         =======
-        np.ndarray
-            Array of shape (n_places, 2) containing counts of persons and infected persons.
+        pl.DataFrame
+            Dataframe of counts
         """
+        # TODO this needs updating to work with polars
         return self.place_data[:, (PL_PERSON_COUNT_IDX, PL_INFECTED_COUNT_IDX)]
 
 
