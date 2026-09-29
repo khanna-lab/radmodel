@@ -20,8 +20,17 @@ def run(params: dict, comm):
     trans_matrix = core.create_trans_matrix(params["transition_matrix"])
     stoe = params["stoe"]
 
-    model = core.Model(comm, schedule.schedule_array, residents, places, stoe, trans_matrix, duration_matrix,
-                       params["random_seed"], params)
+    model = core.Model(
+        comm,
+        schedule.schedule_array,
+        residents,
+        places,
+        stoe,
+        trans_matrix,
+        duration_matrix,
+        params["random_seed"],
+        params,
+    )
     model.run()
 
 
@@ -48,4 +57,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
