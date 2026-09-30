@@ -1,11 +1,12 @@
 from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd 
-from matplotlib.ticker import MultipleLocator, FuncFormatter
+import pandas as pd
 from matplotlib.cm import get_cmap
-from matplotlib.colors import to_hex, ListedColormap, BoundaryNorm
+from matplotlib.colors import BoundaryNorm, ListedColormap, to_hex
 from matplotlib.patches import Patch
+from matplotlib.ticker import FuncFormatter, MultipleLocator
 
 
 class MovementVisualizer:
@@ -14,7 +15,9 @@ class MovementVisualizer:
         self.output_dir = Path(output_dir)
         self.load_data()
         self.hour_ticks = list(range(0, 96, 4))
-        self.hour_labels = [f"{(h % 12) or 12} {'AM' if h < 12 else 'PM'}" for h in range(24)]
+        self.hour_labels = [
+            f"{(h % 12) or 12} {'AM' if h < 12 else 'PM'}" for h in range(24)
+        ]
 
     def load_data(self):
         self.residents_df = pd.read_csv(self.input_dir / "ng_residents.csv")
@@ -28,13 +31,13 @@ class MovementVisualizer:
 
     def plot_occupancy(self, place_type):
         df = self.merged_movement[self.merged_movement["type"] == place_type]
-        
+
         if df["name"].nunique() > 1:
             raise ValueError("This version of plot_occupancy expects only one room.")
 
         plt.figure(figsize=(10, 5))
         room_name = df["name"].unique()[0]
-        
+
         # Simple bar plot: x = tick, y = person_count
         plt.bar(df["tick"], df["person_count"], width=1, align="edge", color="tab:blue")
 
@@ -48,30 +51,37 @@ class MovementVisualizer:
         plt.savefig(self.output_dir / f"{place_type}_occupancy.png")
         plt.close()
 
-
     def plot_gantt_for_persons(self, person_ids):
-        person_colors = {pid: to_hex(get_cmap("tab10")(i)) for i, pid in enumerate(person_ids)}
+        person_colors = {
+            pid: to_hex(get_cmap("tab10")(i)) for i, pid in enumerate(person_ids)
+        }
         place_rows = []
 
         for pid in person_ids:
             row = self.residents_df[self.residents_df["person_id"] == pid].iloc[0]
             schedule_id = row["schedule_id"]
-            sched = self.schedules_df[self.schedules_df["schedule_id"] == schedule_id].copy()
-            sched["place_id"] = sched["place_type"].apply(lambda pt: row[pt])
+            sched = self.schedules_df[
+                self.schedules_df["schedule_id"] == schedule_id
+            ].copy()
+            # sched["place_id"] = sched["place_type"].apply(lambda pt: row[pt])
             sched = sched.merge(self.places_df, on="place_id").sort_values("start")
             sched["duration"] = sched["start"].shift(-1) - sched["start"]
             sched.loc[sched.index[-1], "duration"] = 1440 - sched["start"].iloc[-1]
 
             for _, r in sched.iterrows():
-                place_rows.append({
-                    "person_id": pid,
-                    "place_label": r["name"],
-                    "start": r["start"],
-                    "duration": r["duration"]
-                })
+                place_rows.append(
+                    {
+                        "person_id": pid,
+                        "place_label": r["name"],
+                        "start": r["start"],
+                        "duration": r["duration"],
+                    }
+                )
 
         df = pd.DataFrame(place_rows)
-        unique_places = sorted(df["place_label"].unique(), key=lambda x: ("cell" not in x, x))
+        unique_places = sorted(
+            df["place_label"].unique(), key=lambda x: ("cell" not in x, x)
+        )
         place_to_y = {place: i for i, place in enumerate(unique_places)}
 
         row_offsets = {}
@@ -91,7 +101,7 @@ class MovementVisualizer:
                     facecolors=person_colors[row["person_id"]],
                     edgecolors="black",
                     alpha=0.7,
-                    label=label
+                    label=label,
                 )
             else:
                 plt.broken_barh(
@@ -99,7 +109,7 @@ class MovementVisualizer:
                     (y - 0.15, 0.3),
                     facecolors=person_colors[row["person_id"]],
                     edgecolors="black",
-                    alpha=0.7
+                    alpha=0.7,
                 )
 
         plt.yticks(range(len(unique_places)), unique_places)
@@ -137,19 +147,23 @@ class MovementVisualizer:
         for pid in person_ids:
             row = self.residents_df[self.residents_df["person_id"] == pid].iloc[0]
             schedule_id = row["schedule_id"]
-            sched = self.schedules_df[self.schedules_df["schedule_id"] == schedule_id].copy()
-            sched["place_id"] = sched["place_type"].apply(lambda pt: row[pt])
+            sched = self.schedules_df[
+                self.schedules_df["schedule_id"] == schedule_id
+            ].copy()
+            # sched["place_id"] = sched["place_type"].apply(lambda pt: row[pt])
             sched = sched.merge(self.places_df, on="place_id").sort_values("start")
             sched["duration"] = sched["start"].shift(-1) - sched["start"]
             sched.loc[sched.index[-1], "duration"] = 1440 - sched["start"].iloc[-1]
 
             for _, r in sched.iterrows():
-                place_rows.append({
-                    "person_id": pid,
-                    "place_label": r["name"],
-                    "start": r["start"],
-                    "duration": r["duration"]
-                })
+                place_rows.append(
+                    {
+                        "person_id": pid,
+                        "place_label": r["name"],
+                        "start": r["start"],
+                        "duration": r["duration"],
+                    }
+                )
 
         df = pd.DataFrame(place_rows)
 
@@ -157,7 +171,9 @@ class MovementVisualizer:
         person_ids = list(person_ids)
         person_to_row = {pid: i for i, pid in enumerate(person_ids)}
 
-        unique_places = sorted(df["place_label"].unique(), key=lambda x: ("cell" not in x, x))
+        unique_places = sorted(
+            df["place_label"].unique(), key=lambda x: ("cell" not in x, x)
+        )
         place_to_idx = {place: i for i, place in enumerate(unique_places)}
 
         # Time discretization
@@ -188,8 +204,8 @@ class MovementVisualizer:
         bounds = np.arange(len(unique_places) + 1) - 0.5
         norm = BoundaryNorm(bounds, cmap.N)
 
-        fig, ax = plt.subplots(figsize=(12, max(4, len(person_ids) * 0.25)))
-        im = ax.imshow(mat_masked, aspect="auto", cmap=cmap, norm=norm)
+        _fig, ax = plt.subplots(figsize=(12, max(4, len(person_ids) * 0.25)))
+        _im = ax.imshow(mat_masked, aspect="auto", cmap=cmap, norm=norm)
 
         # Y axis: people
         ax.set_yticks(range(len(person_ids)))
@@ -212,8 +228,16 @@ class MovementVisualizer:
         ax.set_title("Daily Movement Heatmap")
 
         # Legend for places
-        legend_handles = [Patch(color=colors[i], label=unique_places[i]) for i in range(len(unique_places))]
-        ax.legend(handles=legend_handles, title="Location", bbox_to_anchor=(1.01, 1), loc="upper left")
+        legend_handles = [
+            Patch(color=colors[i], label=unique_places[i])
+            for i in range(len(unique_places))
+        ]
+        ax.legend(
+            handles=legend_handles,
+            title="Location",
+            bbox_to_anchor=(1.01, 1),
+            loc="upper left",
+        )
 
         plt.tight_layout()
         self.output_dir.mkdir(parents=True, exist_ok=True)

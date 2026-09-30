@@ -3,26 +3,11 @@ import click
 from genpop import generate_agents, generate_layout
 
 
-@click.group(context_settings=dict(help_option_names=["-h", "--help"]))
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
 def cli():
     pass
 
 
-# @cli.command("create_cells")
-# @click.option(
-#     "-n",
-#     "--num-cells",
-#     type=click.INT,
-#     help="The number of persons to create",
-#     required=True,
-# )
-# @click.option(
-#     "-o",
-#     "--output_file",
-#     type=click.Path(),
-#     help="Path to write the cells to",
-#     required=True,
-# )
 @cli.command("create_persons")
 @click.option(
     "-n",
@@ -39,13 +24,6 @@ def cli():
     required=True,
 )
 @click.option(
-    "-m",
-    "--module-definition-file",
-    type=click.Path(),
-    help="Path to the module definition file containing the module specific places to assign to persons",
-    required=True,
-)
-@click.option(
     "-o",
     "--output_file",
     type=click.Path(),
@@ -53,9 +31,7 @@ def cli():
     required=True,
 )
 def create_persons(num_persons: int, places_file, output_file):
-    generate_agents.generate_persons(
-        num_persons, places_file, output_file
-    )
+    generate_agents.generate_agents(num_persons, places_file, output_file)
 
 
 @cli.command("create_schedules")
