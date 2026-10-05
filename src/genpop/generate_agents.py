@@ -88,6 +88,7 @@ def generate_schedule(schedule_id: int) -> pl.DataFrame:
         "risk": 1,
     }
 
+    # Define schedule mealtimes
     breakfast = random.choice([6, 7])
     lunch = random.choice([11, 12, 13])
     dinner = random.choice([17, 18])
@@ -95,8 +96,7 @@ def generate_schedule(schedule_id: int) -> pl.DataFrame:
     acts["start"] += [breakfast * 60, lunch * 60, dinner * 60]
     acts["place_type"] += ["cafeteria"] * 3
 
-    # acts = pl.DataFrame(acts)
-    # activities between breakfast and lunch
+    # randomly generate activity times
     morning_acts = [a * 60 for a in range(breakfast + 1, lunch)]
     acts["start"] += morning_acts
     acts["place_type"] += ["morning_act"] * len(morning_acts)
