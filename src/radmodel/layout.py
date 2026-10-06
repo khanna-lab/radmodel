@@ -6,7 +6,6 @@ is descriptive metadata for future schedule/movement work.
 """
 
 import os
-import string
 from dataclasses import dataclass, field
 from typing import TypeVar
 
@@ -108,11 +107,8 @@ class Layout:
     shared_modules: dict[str, SharedModule] = field(default_factory=dict)
     gp_count = 0
 
-    def add_module(self, **r):
-        letter = string.ascii_uppercase[int(r["place_id"]) - 2012]
-        self.modules.update(
-            {int(r["place_id"]): Module(module_id=int(r["place_id"]), letter=letter)}
-        )
+    def add_modules(self, modules: list[Module]):
+        self.modules.update({m.module_id: m for m in modules})
 
     def add_shared_module(self, **r):
         self.shared_modules.update(
@@ -152,9 +148,17 @@ class Layout:
             path to folder containing places.csv
         """
         self.place_data = pl.read_csv(os.path.join(path, "places.csv"))
-        # TODO I assume there's a way to do this without looping, but I'm not sure how!
-        for row in self.place_data.filter(pl.col("type") == "module").to_dicts():
-            self.add_module(**row)
+        self.add_modules(
+            self.place_data.filter(pl.col("type") == "module")
+            .rename({"place_id": "module_id"})
+            .select(
+                pl.struct(["module_id"]).map_elements(
+                    lambda x: Module(**x), return_dtype=pl.Object
+                )
+            )
+            .to_series()
+            .to_list()
+        )
 
         # Add shared 'modules' for non-gp cells
         for housing_type in ["restricted", "medical"]:

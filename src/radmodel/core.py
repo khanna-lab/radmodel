@@ -220,22 +220,7 @@ class Model:
         tick: int
             The current tick in the simulation.
         """
-        """
-        TODO
-        We have a few important things to keep track of:
-        1. agent object:
-            a. the schedule # each agent has
-            b. the place an agent goes at each schedule type
-        2. a schedule df that has location type (morning activity, cafeteria, etc) for each t
-        essentially we need to do
-        place_type = schedules.where(sched_num && tick).place_type
-        place = agents.where(agent_id && place_type).place
-
-        then update counts:
-        places[count] = len(agents.where(place && state))
-        place in layout occupants
-        """
-
+        # Combine agent dataframe with their schedule
         agent_data = self.agent_data.join(
             self.schedule_data.filter(pl.col("t") == tick), on="schedule_id"
         )
