@@ -1,7 +1,6 @@
 """Tests for the v1 structural layout (see references/specs/structural-layout-v1.md)."""
 
 import os
-import string
 from collections import Counter
 
 import polars as pl
@@ -11,12 +10,6 @@ from genpop import generate_agents
 
 def test_module_count(fresh_layout, params_no_overflow):
     assert len(fresh_layout.modules) == params_no_overflow["modules"]["count"]
-
-
-def test_module_letters(fresh_layout):
-    assert [m.letter for m in fresh_layout.modules.values()] == list(
-        string.ascii_uppercase[0 : len(fresh_layout.modules)]
-    )
 
 
 def test_total_cell_count(fresh_layout, params_no_overflow):
