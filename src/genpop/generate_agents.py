@@ -1,0 +1,126 @@
+import os
+import random
+
+import numpy as np
+import polars as pl
+
+from radmodel.layout import Layout
+
+
+def generate_agents(
+    num_persons: int,
+    places_file: str | os.PathLike,
+    output_file: str | None = None,
+    save_output: bool = True,
+) -> pl.DataFrame:
+    """Generate agents with the given parameters.
+
+    Parameters
+    ==========
+    num_persons: int
+        number of agents to generate
+    places_file: str | os.PathLike
+        Path to a .csv file containing places
+    output_file: str | os.PathLike
+        Path to save outputs
+
+    Returns
+    =======
+    pl.Dataframe
+        Agent data
+    """
+    print("Warning: Using Single Schedule 0")
+
+    layout = Layout.load_from_csv(places_file)
+    n_mods = len(layout.modules)
+    agents_per_module = num_persons // n_mods
+    cells_per_module = layout.gp_count // n_mods
+
+    # generate activities for each agent
+    place_types = [item.place_id for item in layout.shared_places.values()]
+    morning = random.choices(place_types, k=num_persons)
+    afternoon = random.choices(place_types, k=num_persons)
+    evening = random.choices(place_types, k=num_persons)
+
+    # create base dataframe
+    agents_df = pl.DataFrame(
+        {
+            "module_id": np.repeat(
+                [module_id for module_id in layout.modules], agents_per_module
+            ),
+            "schedule_id": 0,
+            "cafeteria": 0,  # TODO I'm still not sure how to handle cafeteria
+            "morning_act_name": pl.Series(morning),
+            "afternoon_act_name": pl.Series(afternoon),
+            "evening_act_name": pl.Series(evening),
+        }
+    )
+
+    # add agent ids, and cell numbers to dataframe
+    agents_df = agents_df.with_columns(
+        agent_id=pl.int_range(pl.len()),
+        cell_place_id=pl.col("module_id").cum_count().over("module_id")
+        % cells_per_module,
+    )
+
+    if save_output:
+        agents_df.write_csv(output_file)
+
+    return agents_df
+
+
+def generate_schedule(schedule_id: int) -> pl.DataFrame:
+    """Generates a schedule for an agent.
+
+    Parameters
+    ==========
+    schedule_id: int
+        A number indicating the baseline schedule the agent adheres to
+
+    Returns
+    pl.DataFrame
+        Schedule information
+    """
+    acts = {
+        "schedule_id": schedule_id,
+        "start": [0, 19 * 60],
+        "place_type": ["cell", "cell"],
+        "risk": 1,
+    }
+
+    # Define schedule mealtimes
+    breakfast = random.choice([6, 7])
+    lunch = random.choice([11, 12, 13])
+    dinner = random.choice([17, 18])
+
+    acts["start"] += [breakfast * 60, lunch * 60, dinner * 60]
+    acts["place_type"] += ["cafeteria"] * 3
+
+    # randomly generate activity times
+    morning_acts = [a * 60 for a in range(breakfast + 1, lunch)]
+    acts["start"] += morning_acts
+    acts["place_type"] += ["morning_act"] * len(morning_acts)
+    for a in range(lunch + 1, dinner):
+        acts["start"].append(a * 60)
+        acts["place_type"].append(random.choice(["outdoor", "noon_act", "noon_act"]))
+
+    acts_df = pl.DataFrame(acts)
+    acts_df.sort(by="start")
+    # TODO are there evening acts?
+
+    return acts_df
+
+
+def generate_schedules(num_schedules: int, output_file: str) -> pl.DataFrame:
+    """Generates all baseline schedules.
+
+    Parameters
+    ==========
+    num_schedules: int
+        Number of different schedules to produce
+    output_file
+        File location to save.
+    """
+    dfs = pl.concat([generate_schedule(i) for i in range(num_schedules)])
+    dfs.write_csv(output_file)
+    return dfs

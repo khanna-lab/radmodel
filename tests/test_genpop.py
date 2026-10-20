@@ -1,0 +1,125 @@
+"""Tests for the v1 structural layout (see references/specs/structural-layout-v1.md)."""
+
+import os
+from collections import Counter
+
+import polars as pl
+
+from genpop import generate_agents
+
+
+def test_module_count(fresh_layout, params_no_overflow):
+    assert len(fresh_layout.modules) == params_no_overflow["modules"]["count"]
+
+
+def test_total_cell_count(fresh_layout, params_no_overflow):
+    n_gp_cells = (
+        sum([tier["cells_per_tier"] for tier in params_no_overflow["tiers"]])
+        * params_no_overflow["cells"]["gp"]["default_bunk_capacity"]
+    )
+    assert (
+        sum([len(module.cells) for module in fresh_layout.modules.values()])
+        == n_gp_cells
+    )
+
+    n_special = sum(
+        [len(module.cells) for module in fresh_layout.shared_modules.values()]
+    )
+    assert (
+        sum([special["count"] for special in params_no_overflow["cells"]["special"]])
+        == n_special
+    )
+
+
+def test_each_module_has_58_gp_cells(fresh_layout):
+    for module in fresh_layout.modules.values():
+        gp = [cell for cell in module.cells if cell.housing_category == "gp"]
+        assert len(gp) == 40
+
+
+def test_each_module_has_two_tiers_of_20(fresh_layout):
+    for module in fresh_layout.modules.values():
+        bottom = [cell for cell in module.cells if cell.tier == "bottom"]
+        top = [cell for cell in module.cells if cell.tier == "top"]
+        assert len(bottom) == len(top) == 20
+
+
+def test_rh_cell_count(fresh_layout):
+    assert len(fresh_layout.shared_modules["restricted"].cells) == 30
+
+
+def test_mi_cell_count(fresh_layout):
+    assert len(fresh_layout.shared_modules["medical"].cells) == 20
+
+
+def test_shared_places_per_type(fresh_layout, params_no_overflow):
+    expected = {
+        "gym": 1,
+        "yard": 1,
+        "education": 1,
+        "industry": 1,
+        "visit_room": 1,
+        "chapel": 1,
+        "barber": 1,
+    }
+    values = [d.place_type for d in fresh_layout.shared_places.values()]
+    assert dict(Counter(values)) == expected
+    for module in fresh_layout.modules.values():
+        assert len(module.showers) == 1
+        assert len(module.dayrooms) == 1
+    assert len(fresh_layout.cafeterias) == 2
+
+
+def test_subplace_module(fresh_layout):
+    for p in fresh_layout.shared_places.values():
+        if p.place_type in ("dayroom", "shower"):
+            assert p.module_id != 2011
+        else:
+            assert p.module_id == 2011
+
+
+def test_place_ids_globally_unique(places):
+    assert len(places["place_id"]) == len(set(places["place_id"]))
+
+
+def test_generate_schedule():
+    schedule = generate_agents.generate_schedule(0)
+    assert (
+        schedule.select([pl.arg_where(pl.col("start") % 60 == 0)]).shape[0]
+        == schedule.shape[0]
+    ), "Not all activities are hourly"
+
+
+def test_generate_schedules(tmp_path_factory):
+    d = tmp_path_factory.mktemp("schedules")
+    generate_agents.generate_schedules(10, os.path.join(str(d), "schedules.csv"))
+    with open(os.path.join(str(d), "schedules.csv")) as f:
+        schedules = f.readlines()[1:]
+    schedule_ids = []
+    for line in schedules:
+        schedule_ids.append(line[0])
+
+    assert len(set(schedule_ids)) == 10, "Did not create correct number of schedules"
+
+
+def test_generate_agents_cells(agents, params_no_overflow):
+    assert agents.shape == (params_no_overflow["residents"]["count"], 8)
+    assert (
+        agents.group_by(["module_id", "cell_place_id"]).len().max()["len"] == 2
+    ).all(), "Cells should house max 2 agents"
+
+
+def test_generate_agents_activities(agents):
+    num_morning = agents.unique(subset="morning_act_name").shape[0]
+    num_afternoon = agents.unique(subset="afternoon_act_name").shape[0]
+    num_evening = agents.unique(subset="evening_act_name").shape[0]
+
+    assert num_morning > 1 and num_morning <= 7, (
+        f"There should be fewer than 7 activities, found {num_morning}"
+    )
+    assert num_afternoon > 1 and num_afternoon <= 7, (
+        f"There should be fewer than 7 activities, found {num_afternoon}"
+    )
+    assert num_evening > 1 and num_evening <= 7, (
+        f"There should be fewer than 7 activities, found {num_evening}"
+    )
