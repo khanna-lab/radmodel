@@ -13,6 +13,9 @@ dependencies = [
     "repast4py",
     "click>=8.4.2",
     "pandas>=3.0.5",
+    "pydantic>=2.13.4",
+    "pydantic-numpy>=8.0.1",
+    "polars>=1.43.2",
 ]
 
 [project.optional-dependencies]
@@ -43,7 +46,7 @@ where = ["src"]
 # exclude = ["Dockerfiles*", "scripts*", "workflow*"]
 
 [tool.ruff]
-extend-select = ["Q"]
+lint.extend-select = ["Q"]
 
 [tool.pytest.ini_options]
     pythonpath = [
@@ -52,5 +55,6 @@ extend-select = ["Q"]
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.6.1",
     "pytest>=9.1.1",
 ]
