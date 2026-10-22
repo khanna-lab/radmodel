@@ -49,14 +49,9 @@ class Places:
 
         Parameters
         ==========
-        place_id_map: Dict[int, int]
-            Mapping from place ID to index in the place array.
-        place_data: np.ndarray
-            2d-array of shape (n_places, 3) containing place data,
-            where each row corresponds to a place and the columns are:
-                0: place ID
-                1: number of persons
-                2: number of infecteds
+        place_data: pl.DataFrame
+            pl.DataFrame containing place data, including place information and current
+            agent counts.
         """
         self.place_data = place_data
 

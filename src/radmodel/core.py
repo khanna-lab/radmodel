@@ -101,19 +101,13 @@ class Model:
         ==========
         comm : MPI.Intracomm
             The MPI communicator.
-        schedule_data : np.ndarray[int]
-            An tick-indexed 1-d array of shape (n_schedules * TICKS_PER_DAY) containing
-            the place types for each tick in the day for each schedule.
-        person_data : np.ndarray
-            The person data array that comes from population.create_persons. This array contains
-            the person data for each person in the population, including their current state,
-            next state transition time, and current place.
+        schedule_data : pl.DataFrame
+            A dataframe containing a row per schedule per timestep.
+        person_data : pl.DataFrame
+            This dataframe contains the person data for each person in the population,
+            including current state, next state transition time, and current place.
         place_data : Places
-            The place data object that comes from population.create_places. This object
-            contains two pieces of information: the place data array and
-            a mapping from place_id to row index in the place data array.
-            It also contains methods to update the counts of persons and infected persons
-            in each place.
+            This object contains place data and methods to update counts of agents.
         stoe : float
             The standard time of exposure.
         trans_matrix : np.array
