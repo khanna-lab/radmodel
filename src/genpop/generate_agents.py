@@ -50,17 +50,16 @@ def generate_agents(
             ),
             "schedule_id": 0,
             "cafeteria": 0,  # TODO I'm still not sure how to handle cafeteria
-            "morning_act_name": pl.Series(morning),
-            "afternoon_act_name": pl.Series(afternoon),
-            "evening_act_name": pl.Series(evening),
+            "morning_act": pl.Series(morning),
+            "afternoon_act": pl.Series(afternoon),
+            "evening_act": pl.Series(evening),
         }
     )
 
     # add agent ids, and cell numbers to dataframe
     agents_df = agents_df.with_columns(
         agent_id=pl.int_range(pl.len()),
-        cell_place_id=pl.col("module_id").cum_count().over("module_id")
-        % cells_per_module,
+        cell_id=pl.col("module_id").cum_count().over("module_id") % cells_per_module,
     )
 
     if save_output:
@@ -102,7 +101,9 @@ def generate_schedule(schedule_id: int) -> pl.DataFrame:
     acts["place_type"] += ["morning_act"] * len(morning_acts)
     for a in range(lunch + 1, dinner):
         acts["start"].append(a * 60)
-        acts["place_type"].append(random.choice(["outdoor", "noon_act", "noon_act"]))
+        acts["place_type"].append(
+            random.choice(["outdoor", "afternoon_act", "afternoon_act"])
+        )
 
     acts_df = pl.DataFrame(acts)
     acts_df.sort(by="start")

@@ -122,7 +122,6 @@ class Model:
         self.rng: np.random.Generator = np.random.default_rng(seed)
         self.schedule_data = schedule_data
         self.place_data = place_data
-        # get location data for agents at t=0
 
         self.stoe: np.float32 = np.float32(stoe)
         self.trans_matrix: np.ndarray = trans_matrix.cumsum(axis=1)
@@ -134,7 +133,8 @@ class Model:
         self._init_schedule(comm)
         self._init_agents(person_data)
         self._init_exposed(params["init_exposed"])
-        self._log(0)
+        # TODO fix _log
+        # self._log(0)
 
     def _init_agents(self, person_data: pl.DataFrame):
         """Initiates model agents. This merges the other agent data with their full schedule.
@@ -151,12 +151,13 @@ class Model:
         self.agent_data = person_data.join(
             self.schedule_data.filter(pl.col("t") == 0), on="schedule_id"
         )
+        print(self.agent_data)
 
         # add correct location information for each t
         self.agent_data = self.agent_data.unpivot(
-            on=["evening_act", "cell", "cafeteria", "morning_act", "noon_act"],
+            on=["cell_id", "cafeteria", "morning_act", "afternoon_act", "evening_act"],
             index=~pl.selectors.by_name(
-                ["cell", "cafeteria", "morning_act", "noon_act", "evening_act"]
+                ["cell_id", "cafeteria", "morning_act", "afternoon_act", "evening_act"]
             ),
             value_name="place",
         ).filter(pl.col("variable") == pl.col("place_type"))
@@ -190,10 +191,10 @@ class Model:
         loggers = logging.create_loggers(self.counts, op=MPI.SUM, rank=comm.Get_rank())
         self.data_set = logging.ReducingDataSet(loggers, comm, log_file)
 
-        place_log_file = params["places_log_file"]
-        self.counts_by_place = CountsByPlaceLogger(
-            self.place_data.place_id_map, place_log_file
-        )
+        # place_log_file = params["places_log_file"]
+        # self.counts_by_place = CountsByPlaceLogger(
+        #     self.place_data.place_id_map, place_log_file
+        # )
 
     def _init_schedule(self, comm):
         self.runner = schedule.init_schedule_runner(comm)
@@ -221,9 +222,9 @@ class Model:
 
         self.current_agent_data = (
             agent_data.unpivot(
-                on=["evening_act", "cell", "cafeteria", "morning_act", "noon_act"],
+                on=["evening_act", "cell", "cafeteria", "morning_act", "afternoon_act"],
                 index=~pl.selectors.by_name(
-                    ["cell", "cafeteria", "morning_act", "noon_act", "evening_act"]
+                    ["cell", "cafeteria", "morning_act", "afternoon_act", "evening_act"]
                 ),
                 variable_name="current_place",
             )
@@ -411,10 +412,10 @@ class Model:
         # TODO I think this needs to iterate through each agent and 1. update disease state, 2. update location
         self.counts.reset()
 
-        tick = self.runner.tick()
+        tick = int(self.runner.tick())
         self.select_next_place(tick)
         self.update_disease_state(tick)
-
+        # TODO fix _log
         self._log(tick)
 
 
