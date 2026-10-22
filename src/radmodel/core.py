@@ -132,7 +132,7 @@ class Model:
         self._init_logging(comm, params)
         self._init_schedule(comm)
         self._init_agents(person_data)
-        self._init_exposed(params["init_exposed"])
+        # self._init_exposed(params["init_exposed"])
         # TODO fix _log
         # self._log(0)
 
@@ -150,14 +150,13 @@ class Model:
         # join schedule to correct agents
         self.agent_data = person_data.join(
             self.schedule_data.filter(pl.col("t") == 0), on="schedule_id"
-        )
-        print(self.agent_data)
+        ).with_columns(pl.col("cell_id").alias("cell"))
 
         # add correct location information for each t
         self.agent_data = self.agent_data.unpivot(
-            on=["cell_id", "cafeteria", "morning_act", "afternoon_act", "evening_act"],
+            on=["cell", "cafeteria", "morning_act", "afternoon_act", "evening_act"],
             index=~pl.selectors.by_name(
-                ["cell_id", "cafeteria", "morning_act", "afternoon_act", "evening_act"]
+                ["cell", "cafeteria", "morning_act", "afternoon_act", "evening_act"]
             ),
             value_name="place",
         ).filter(pl.col("variable") == pl.col("place_type"))
