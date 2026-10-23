@@ -51,7 +51,7 @@ def agents(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def fresh_model(tmp_path_factory, fresh_layout):
+def model_params(tmp_path_factory):
     params = generate_layout.get_params("./tests/test_params/radmodel_params.yaml")
     params["schedule_file"] = "./tests/test_params/schedules.csv"
     params["places_file"] = "./tests/test_params/places.csv"
@@ -60,16 +60,20 @@ def fresh_model(tmp_path_factory, fresh_layout):
     params["output_dir"] = d
     params["counts_log_file"] = os.path.join(str(d), "counts.csv")
     params["places_log_file"] = os.path.join(str(d), "counts_by_place.csv")
+    return params
 
-    schedule = create_schedules(params["schedule_file"])
+
+@pytest.fixture(scope="session")
+def fresh_model(model_params, fresh_layout):
+    schedule = create_schedules(model_params["schedule_file"])
     return Model(
         comm=MPI.COMM_WORLD,
         schedule_data=schedule,
         person_data=create_residents("./tests/test_params/residents.csv"),
         place_data=Places(fresh_layout.place_data),
-        stoe=params["stoe"],
-        trans_matrix=create_trans_matrix(params["transition_matrix"]),
-        duration_matrix=create_duration_matrix(params),
-        seed=params["random_seed"],
-        params=params,
+        stoe=model_params["stoe"],
+        trans_matrix=create_trans_matrix(model_params["transition_matrix"]),
+        duration_matrix=create_duration_matrix(model_params),
+        seed=model_params["random_seed"],
+        params=model_params,
     )
