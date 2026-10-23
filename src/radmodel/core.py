@@ -26,9 +26,13 @@ from .population import (
 )
 
 
+def init_count() -> np.int32:
+    return np.int32(0)
+
+
 @dataclass
 class Counts:
-    susceptible: int = 0
+    susceptible: np.uint32 = field(default_factory=init_count)
     exposed: int = 0
     presymp: int = 0
     infected_symp: int = 0
@@ -67,19 +71,20 @@ class Counts:
 
 
 class CountsByPlaceLogger:
-    def __init__(self, place_id_map, log_fname):
-        self.reverse_map = {v: k for k, v in place_id_map.items()}
+    def __init__(self, log_fname):
         self.log_fname = util.find_free_filename(log_fname)
 
         with open(self.log_fname, "w") as fin:
             fin.write("tick,place_id,person_count,inf_count\n")
 
     def log_counts(self, tick, places):
-        with open(self.log_fname, "a") as fin:
-            fin.writelines(
-                f"{tick},{self.reverse_map[idx]},{vals[0]},{vals[1]}\n"
-                for idx, vals in enumerate(places.get_all_counts())
-            )
+        """TODO set up logging"""
+        return
+        # with open(self.log_fname, "a") as fin:
+        #     fin.writelines(
+        #         f"{tick},{self.reverse_map[idx]},{vals[0]},{vals[1]}\n"
+        #         for idx, vals in enumerate(places.get_all_counts())
+        #     )
 
 
 class Model:
@@ -87,7 +92,7 @@ class Model:
         self,
         comm: MPI.Intracomm,
         schedule_data: pl.DataFrame,
-        person_data: pl.DataFrame,
+        agent_data: pl.DataFrame,
         place_data: Places,
         stoe: float,
         trans_matrix: np.ndarray,
@@ -101,19 +106,13 @@ class Model:
         ==========
         comm : MPI.Intracomm
             The MPI communicator.
-        schedule_data : np.ndarray[int]
-            An tick-indexed 1-d array of shape (n_schedules * TICKS_PER_DAY) containing
-            the place types for each tick in the day for each schedule.
-        person_data : np.ndarray
-            The person data array that comes from population.create_persons. This array contains
-            the person data for each person in the population, including their current state,
-            next state transition time, and current place.
+        schedule_data : pl.DataFrame
+            A dataframe containing a row per schedule per timestep.
+        person_data : pl.DataFrame
+            This dataframe contains the person data for each person in the population,
+            including current state, next state transition time, and current place.
         place_data : Places
-            The place data object that comes from population.create_places. This object
-            contains two pieces of information: the place data array and
-            a mapping from place_id to row index in the place data array.
-            It also contains methods to update the counts of persons and infected persons
-            in each place.
+            This object contains place data and methods to update counts of agents.
         stoe : float
             The standard time of exposure.
         trans_matrix : np.array
@@ -128,7 +127,6 @@ class Model:
         self.rng: np.random.Generator = np.random.default_rng(seed)
         self.schedule_data = schedule_data
         self.place_data = place_data
-        # get location data for agents at t=0
 
         self.stoe: np.float32 = np.float32(stoe)
         self.trans_matrix: np.ndarray = trans_matrix.cumsum(axis=1)
@@ -138,8 +136,9 @@ class Model:
 
         self._init_logging(comm, params)
         self._init_schedule(comm)
-        self._init_agents(person_data)
+        self._init_agents(agent_data)
         self._init_exposed(params["init_exposed"])
+        # TODO fix _log
         self._log(0)
 
     def _init_agents(self, person_data: pl.DataFrame):
@@ -156,13 +155,13 @@ class Model:
         # join schedule to correct agents
         self.agent_data = person_data.join(
             self.schedule_data.filter(pl.col("t") == 0), on="schedule_id"
-        )
+        ).with_columns(pl.col("cell_id").alias("cell"))
 
         # add correct location information for each t
         self.agent_data = self.agent_data.unpivot(
-            on=["evening_act", "cell", "cafeteria", "morning_act", "noon_act"],
+            on=["cell", "cafeteria", "morning_act", "afternoon_act", "evening_act"],
             index=~pl.selectors.by_name(
-                ["cell", "cafeteria", "morning_act", "noon_act", "evening_act"]
+                ["cell", "cafeteria", "morning_act", "afternoon_act", "evening_act"]
             ),
             value_name="place",
         ).filter(pl.col("variable") == pl.col("place_type"))
@@ -177,17 +176,26 @@ class Model:
 
         """
         k, scale = self.duration_matrix[EXPOSED]
-        # construct a list of susceptible vs exposed and update
-        new_states = ["exposed"] * n_exposed + ["susceptible"] * (
-            self.agent_data.shape[0]
-        )
-        next_transition = (
-            self.rng.gamma(k, scale, n_exposed) * TICKS_PER_DAY
-            + np.iinfo(np.uint32).max * (self.agent_data.shape[0])
-        )
-        np.random.shuffle(new_states)
+
+        # randomly select agent states
         self.agent_data = self.agent_data.with_columns(
-            pl.DataFrame({"state": new_states, "next_transition": next_transition})
+            state=self.rng.permutation(
+                ["susceptible"] * (self.agent_data.shape[0] - n_exposed)
+                + ["exposed"] * n_exposed
+            ),
+        )
+
+        m = np.iinfo(np.uint32).max
+        self.agent_data = self.agent_data.with_columns(
+            next_transition=pl.when(pl.col("state") == "exposed")
+            .then(
+                pl.lit(
+                    (
+                        np.random.gamma(k, scale, len(self.agent_data)) * TICKS_PER_DAY
+                    ).astype(int)
+                )
+            )
+            .otherwise(pl.lit(m))
         )
 
     def _init_logging(self, comm: MPI.Intracomm, params: dict):
@@ -197,9 +205,7 @@ class Model:
         self.data_set = logging.ReducingDataSet(loggers, comm, log_file)
 
         place_log_file = params["places_log_file"]
-        self.counts_by_place = CountsByPlaceLogger(
-            self.place_data.place_id_map, place_log_file
-        )
+        self.counts_by_place = CountsByPlaceLogger(place_log_file)
 
     def _init_schedule(self, comm):
         self.runner = schedule.init_schedule_runner(comm)
@@ -227,9 +233,9 @@ class Model:
 
         self.current_agent_data = (
             agent_data.unpivot(
-                on=["evening_act", "cell", "cafeteria", "morning_act", "noon_act"],
+                on=["evening_act", "cell", "cafeteria", "morning_act", "afternoon_act"],
                 index=~pl.selectors.by_name(
-                    ["cell", "cafeteria", "morning_act", "noon_act", "evening_act"]
+                    ["cell", "cafeteria", "morning_act", "afternoon_act", "evening_act"]
                 ),
                 variable_name="current_place",
             )
@@ -417,10 +423,10 @@ class Model:
         # TODO I think this needs to iterate through each agent and 1. update disease state, 2. update location
         self.counts.reset()
 
-        tick = self.runner.tick()
+        tick = int(self.runner.tick())
         self.select_next_place(tick)
         self.update_disease_state(tick)
-
+        # TODO fix _log
         self._log(tick)
 
 
