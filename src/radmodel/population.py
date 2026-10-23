@@ -55,20 +55,22 @@ class Places:
         """
         self.place_data = place_data
 
-    def update_counts(self, places: np.ndarray, counts: np.ndarray) -> None:
+    def update_counts(self, agents: pl.DataFrame) -> None:
         """Update the counts of persons in the specified places.
 
         Parameters
         ==========
-        places: np.ndarray
-            Array of place indices to update.
-        counts: np.ndarray
-            Array of counts corresponding to the places.
+        agents: pl.DataFrame
+            Data for agents at current time
         """
+        self.place_data.drop("count").join(
+            agents.group_by(
+                ["mod", "place_type", "current_place"]
+            ).len(),  # TODO I need to check that current_place is unique
+            on="current_place",
+        )
 
-        self.place_data[places, PL_PERSON_COUNT_IDX] = counts
-
-    def update_infected_counts(self, counts: pl.DataFrame) -> None:
+    def update_infected_counts(self, agents: pl.DataFrame) -> None:
         """Update the counts of infected persons in the specified places.
 
         Parameters
@@ -78,7 +80,22 @@ class Places:
         counts: np.ndarray
             Array of counts corresponding to the places.
         """
-        self.place_data = self.place_data.update(counts, on="place_id")
+        # self.place_data = self.place_data.update(counts, on="place_id")
+        self.place_data.drop("infected_count").join(
+            agents.filter(
+                pl.col("state").is_in(
+                    [
+                        "presymptomatic",
+                        "infected_asymp",
+                        "infected_symp",
+                        "hospitalized",
+                    ]
+                )
+            )
+            .group_by(pl.col("current_place"))
+            .len(),
+            on="current_place",
+        )
 
     def get_counts(self, place_idxs: np.ndarray) -> np.ndarray:
         """Get the counts of persons and infected persons for the specified places.

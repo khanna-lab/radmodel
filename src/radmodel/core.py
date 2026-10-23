@@ -26,13 +26,9 @@ from .population import (
 )
 
 
-def init_count() -> np.int32:
-    return np.int32(0)
-
-
 @dataclass
 class Counts:
-    susceptible: np.uint32 = field(default_factory=init_count)
+    susceptible: int = 0
     exposed: int = 0
     presymp: int = 0
     infected_symp: int = 0
@@ -248,11 +244,11 @@ class Model:
 
         # sets total persons in each place: unique place ids (which are also row indexs in place data),
         # and how many times they occur
-        places, counts = np.unique(
-            self.person_data[:, P_CURRENT_PLACE_IDX], return_counts=True
-        )
+        # places, counts = np.unique(
+        #     self.person_data[:, P_CURRENT_PLACE_IDX], return_counts=True
+        # )
         # Using the places place row idxs set number of persons in those places
-        self.place_data.update_counts(places, counts)
+        self.place_data.update_counts(self.current_agent_data)
         states = self.person_data[:, P_STATE_IDX]
 
         # Same counts but only for infected persons
