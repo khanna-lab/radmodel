@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
@@ -139,7 +139,7 @@ class Model:
         self._init_agents(agent_data)
         self._init_exposed(params["init_exposed"])
         # TODO fix _log
-        self._log(0)
+        # self._log(0)
 
     def _init_agents(self, person_data: pl.DataFrame):
         """Initiates model agents. This merges the other agent data with their full schedule.

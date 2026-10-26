@@ -69,7 +69,7 @@ def fresh_model(model_params, fresh_layout):
     return Model(
         comm=MPI.COMM_WORLD,
         schedule_data=schedule,
-        person_data=create_residents("./tests/test_params/residents.csv"),
+        agent_data=create_residents("./tests/test_params/residents.csv"),
         place_data=Places(fresh_layout.place_data),
         stoe=model_params["stoe"],
         trans_matrix=create_trans_matrix(model_params["transition_matrix"]),
