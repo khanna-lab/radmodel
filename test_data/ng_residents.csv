@@ -1,4 +1,4 @@
-person_id,schedule_id,cell,cafeteria,morning_act,noon_act,evening_act,mod
+person_id,schedule_id,cell,cafeteria,morning_act,afternoon_act,evening_act,mod
 0,0,0,500,501,503,502,0
 1,0,1,500,503,501,502,1
 2,0,2,500,502,503,501,2

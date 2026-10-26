@@ -14,7 +14,7 @@ def run(params: dict, comm):
     prison_layout = Layout.load_from_csv("data/")
     places: population.Places = population.Places(prison_layout.place_data)
     fname = params["residents_file"]
-    residents = population.create_residents(fname, places.place_id_map, schedule.id_map)
+    residents = population.create_residents(fname)
 
     duration_matrix = core.create_duration_matrix(params)
     trans_matrix = core.create_trans_matrix(params["transition_matrix"])
@@ -22,7 +22,7 @@ def run(params: dict, comm):
 
     model = core.Model(
         comm,
-        schedule.schedule_array,
+        schedule,
         residents,
         places,
         stoe,
