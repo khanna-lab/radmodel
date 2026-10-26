@@ -1,8 +1,8 @@
 import csv
 import os
 import string
+
 import yaml
-from typing import Any
 
 
 def get_params(mod_def_file):
@@ -27,8 +27,6 @@ def generate_places(
     data = get_params(mod_def_file)
 
     module = data.get("facility")
-    assert module is not None
-    module_name = module["name"]
     n_modules = module["modules"]["count"]
     module_letters = [string.ascii_uppercase[i] for i in range(n_modules)]
     gp_cells = module["cells"]["gp"]
@@ -95,6 +93,9 @@ def generate_places(
                         "subtype": gp_cells["housing_category"].lower(),
                         "tier": tier["name"],
                         "capacity": gp_cells["default_bunk_capacity"],
+                        "overflow_capacity": gp_cells["overflow"][
+                            "overflow_bunk_capacity"
+                        ],
                         "parent_id": parent_id,
                     }
                 )
@@ -120,6 +121,7 @@ def generate_places(
                     "type": "cell",
                     "subtype": place_type,
                     "capacity": special["bunk_capacity"],
+                    "overflow_capacity": special["bunk_capacity"],
                     "parent_id": parent_id,
                 }
             )
@@ -150,6 +152,7 @@ def generate_places(
                 "tier",
                 "capacity",
                 "parent_id",
+                "overflow_capacity",
             ],
         )
         writer.writeheader()

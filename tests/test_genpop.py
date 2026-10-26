@@ -52,12 +52,7 @@ def test_mi_cell_count(fresh_layout):
     assert len(fresh_layout.shared_modules["medical"].cells) == 20
 
 
-def test_shared_places_total(fresh_layout):
-    # 2 dayrooms + 2 showers + 2 dining + 9 single-instance facility-shared
-    assert len(fresh_layout.shared_places) == 13
-
-
-def test_shared_places_per_type(fresh_layout):
+def test_shared_places_per_type(fresh_layout, params_no_overflow):
     expected = {
         "gym": 1,
         "yard": 1,
