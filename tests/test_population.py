@@ -17,13 +17,12 @@ def test_create_schedules():
 
 def test_create_residents():
     residents = create_residents("./tests/test_params/residents.csv")
-    assert residents.shape[1] == residents.unique("person_id").select(pl.len()).item(
-        0, 0
-    ), "Agent ids not unique."
+    assert residents.shape == residents.unique("agent_id").shape, residents
 
 
 def test_update_infected_counts():
     place_data = Layout.load_from_csv("./tests/test_params")
+    # residents = create_residents("./tests/test_params/residents.csv")
     places = Places(place_data.place_data)
     places.update_infected_counts(
         pl.DataFrame({"place_id": [1002], "infected_count": [20]})
