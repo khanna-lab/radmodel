@@ -108,8 +108,8 @@ class Model:
             The MPI communicator.
         schedule_data : pl.DataFrame
             A dataframe containing a row per schedule per timestep.
-        person_data : pl.DataFrame
-            This dataframe contains the person data for each person in the population,
+        agent_data : pl.DataFrame
+            This dataframe contains the data for each agent in the population,
             including current state, next state transition time, and current place.
         place_data : Places
             This object contains place data and methods to update counts of agents.
@@ -138,7 +138,7 @@ class Model:
         self._init_schedule(comm)
         self._init_agents(agent_data)
         self._init_exposed(params["init_exposed"])
-        # TODO fix _log
+        # TODO fix _log (currently relies on too many things to be changed)
         # self._log(0)
 
     def _init_agents(self, person_data: pl.DataFrame):
@@ -148,10 +148,8 @@ class Model:
         ==========
         person_data: pl.DataFrame
             Agent information.
-        schedule_data: pl.DataFrame
-            Schedules of locations at time t.
         """
-        # filter the schedule to current t, *then* join the unpivoted table
+        # filter the schedule to current t, then join the unpivoted table
         # join schedule to correct agents
         self.agent_data = person_data.join(
             self.schedule_data.filter(pl.col("t") == 0), on="schedule_id"
