@@ -53,7 +53,7 @@ class Places:
             pl.DataFrame containing place data, including place information and current
             agent counts.
         """
-        self.place_data = place_data
+        self.place_data = place_data.with_columns(count=0)
 
     def update_counts(self, agents: pl.DataFrame) -> None:
         """Update the counts of persons in the specified places.
@@ -63,11 +63,13 @@ class Places:
         agents: pl.DataFrame
             Data for agents at current time
         """
+        # assert False, agents.select("current_place")
         self.place_data.drop("count").join(
-            agents.group_by(
-                ["mod", "place_type", "current_place"]
-            ).len(),  # TODO I need to check that current_place is unique
-            on="current_place",
+            agents.group_by(["module_id", "place_type", "current_place"]).len(
+                name="count"
+            ),  # TODO I need to check that current_place is unique id
+            left_on="place_id",
+            right_on="current_place",
         )
 
     def update_infected_counts(self, agents: pl.DataFrame) -> None:
@@ -80,8 +82,7 @@ class Places:
         counts: np.ndarray
             Array of counts corresponding to the places.
         """
-        # self.place_data = self.place_data.update(counts, on="place_id")
-        self.place_data.drop("infected_count").join(
+        self.place_data = self.place_data.drop("infected_count").join(
             agents.filter(
                 pl.col("state").is_in(
                     [
@@ -93,8 +94,9 @@ class Places:
                 )
             )
             .group_by(pl.col("current_place"))
-            .len(),
-            on="current_place",
+            .len(name="infected_count"),
+            left_on="place_id",
+            right_on="current_place",
         )
 
     def get_counts(self, place_idxs: np.ndarray) -> np.ndarray:
@@ -161,4 +163,5 @@ def create_residents(
     return residents.with_columns(
         pl.lit("susceptible").cast(state_enum).alias("state"),
         pl.lit(np.iinfo(np.uint32).max).alias("next_transition"),
+        pl.col("cell").alias("current_place"),
     )

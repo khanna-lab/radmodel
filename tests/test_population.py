@@ -1,4 +1,5 @@
 import polars as pl
+from polars.testing import assert_frame_equal
 
 from radmodel.layout import Layout
 from radmodel.population import Places, create_residents, create_schedules
@@ -22,23 +23,13 @@ def test_create_residents():
 
 def test_update_infected_counts():
     place_data = Layout.load_from_csv("./tests/test_params")
-    # residents = create_residents("./tests/test_params/residents.csv")
+    residents = create_residents("./tests/test_params/residents.csv")
+    new_states = ["susceptible"] * 50 + ["infected_asymp"] * 25 + ["hospitalized"] * 25
+    residents = residents.with_columns(state=pl.Series(new_states))
     places = Places(place_data.place_data)
-    places.update_infected_counts(
-        pl.DataFrame({"place_id": [1002], "infected_count": [20]})
-    )
-    assert (
-        places.place_data.filter(pl.col("place_id") == 1002)
-        .select("infected_count")
-        .item(0, 0)
-        == 20
-    ), "Infected count did not update."
-    all_zero = places.place_data.filter(pl.col("place_id") != 1002).select(
-        "infected_count"
-    )
-    assert all_zero.unique("infected_count").shape[0] == 1, (
-        "Some incorrect infection counts updated."
-    )
-    assert all_zero.select("infected_count").item(0, 0) == 0, (
-        "Incorrect infection counts updated."
+    places.update_infected_counts(residents)
+    assert_frame_equal(
+        places.place_data.sum().select("infected_count"),
+        pl.DataFrame({"infected_count": 50}),
+        check_dtypes=False,
     )
