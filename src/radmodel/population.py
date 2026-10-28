@@ -82,9 +82,9 @@ class Places:
         counts: np.ndarray
             Array of counts corresponding to the places.
         """
-        self.place_data.drop("infected_count").join(
+        self.place_data = self.place_data.drop("infected_count").join(
             agents.group_by(pl.col("current_place")).agg(
-                pl.col("state")
+                infected_count=pl.col("state")
                 .is_in(
                     [
                         "presymptomatic",
@@ -93,8 +93,7 @@ class Places:
                         "hospitalized",
                     ]
                 )
-                .len()
-                .alias("infected_count")
+                .sum()
             ),
             left_on="place_id",
             right_on="current_place",
