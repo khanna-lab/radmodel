@@ -147,12 +147,13 @@ class Model:
         """
         # filter the schedule to current t, then join the unpivoted table
         # join schedule to correct agents
-        self.agent_data = agent_data.join(
+        self.agent_data = agent_data
+        self.current_agent_data = agent_data.join(
             self.schedule_data.filter(pl.col("t") == 0), on="schedule_id"
         )
 
         # add correct location information for each t
-        self.agent_current_data = self.agent_data.unpivot(
+        self.agent_current_data = self.current_agent_data.unpivot(
             on=["cell", "cafeteria", "morning_act", "afternoon_act", "evening_act"],
             index=~pl.selectors.by_name(
                 ["cell", "cafeteria", "morning_act", "afternoon_act", "evening_act"]
@@ -220,25 +221,26 @@ class Model:
         tick: int
             The current tick in the simulation.
         """
-        # suddenly doesn't have places?
-        # Combine agent dataframe with their schedule
-        # assert False, self.schedule_data.filter(pl.col("t") == tick)
-        agent_data = self.agent_data.drop(
-            ["current_place", "place_type", "t", "risk", "start", "end"]
-        ).join(
+        agent_data = self.agent_data.join(
             self.schedule_data.filter(pl.col("t") == tick).with_columns(
                 current_place_type=pl.col("place_type")
             ),
             on="schedule_id",
         )
-        # assert False, agent_data
 
         # get agent location at current time
-        self.current_agent_data = agent_data.unpivot(
-            on=["evening_act", "cell", "cafeteria", "morning_act", "afternoon_act"],
-            index=~pl.selectors.by_name([]),
-            value_name="current_place",
-        ).filter(pl.col("current_place_type") == pl.col("variable"))
+        self.current_agent_data = (
+            agent_data.drop("current_place")
+            .unpivot(
+                on=["evening_act", "cell", "cafeteria", "morning_act", "afternoon_act"],
+                index=~pl.selectors.by_name(
+                    ["evening_act", "cell", "cafeteria", "morning_act", "afternoon_act"]
+                ),
+                value_name="current_place",
+            )
+            .filter(pl.col("current_place_type") == pl.col("variable"))
+            .drop("variable")
+        )
         # get total and infected counts for each state and place
         self.place_data.update_counts(self.current_agent_data)
         self.place_data.update_infected_counts(self.current_agent_data)

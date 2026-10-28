@@ -63,7 +63,7 @@ class Places:
         agents: pl.DataFrame
             Data for agents at current time
         """
-        # assert False, agents.select("current_place")
+
         self.place_data.drop("count").join(
             agents.group_by(["module_id", "place_type", "current_place"]).len(
                 name="count"
@@ -82,9 +82,10 @@ class Places:
         counts: np.ndarray
             Array of counts corresponding to the places.
         """
-        self.place_data = self.place_data.drop("infected_count").join(
-            agents.filter(
-                pl.col("state").is_in(
+        self.place_data.drop("infected_count").join(
+            agents.group_by(pl.col("current_place")).agg(
+                pl.col("state")
+                .is_in(
                     [
                         "presymptomatic",
                         "infected_asymp",
@@ -92,9 +93,9 @@ class Places:
                         "hospitalized",
                     ]
                 )
-            )
-            .group_by(pl.col("current_place"))
-            .len(name="infected_count"),
+                .len()
+                .alias("infected_count")
+            ),
             left_on="place_id",
             right_on="current_place",
         )
