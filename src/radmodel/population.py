@@ -53,22 +53,26 @@ class Places:
             pl.DataFrame containing place data, including place information and current
             agent counts.
         """
-        self.place_data = place_data
+        self.place_data = place_data.with_columns(person_count=0)
 
-    def update_counts(self, places: np.ndarray, counts: np.ndarray) -> None:
+    def update_counts(self, agents: pl.DataFrame) -> None:
         """Update the counts of persons in the specified places.
 
         Parameters
         ==========
-        places: np.ndarray
-            Array of place indices to update.
-        counts: np.ndarray
-            Array of counts corresponding to the places.
+        agents: pl.DataFrame
+            Data for agents at current time
         """
 
-        self.place_data[places, PL_PERSON_COUNT_IDX] = counts
+        self.place_data.drop("person_count").join(
+            agents.group_by(["module_id", "place_type", "current_place"]).len(
+                name="person_count"
+            ),
+            left_on="place_id",
+            right_on="current_place",
+        )
 
-    def update_infected_counts(self, counts: pl.DataFrame) -> None:
+    def update_infected_counts(self, agents: pl.DataFrame) -> None:
         """Update the counts of infected persons in the specified places.
 
         Parameters
@@ -78,7 +82,22 @@ class Places:
         counts: np.ndarray
             Array of counts corresponding to the places.
         """
-        self.place_data = self.place_data.update(counts, on="place_id")
+        self.place_data = self.place_data.drop("infected_count").join(
+            agents.group_by(pl.col("current_place")).agg(
+                infected_count=pl.col("state")
+                .is_in(
+                    [
+                        "presymptomatic",
+                        "infected_asymp",
+                        "infected_symp",
+                        "hospitalized",
+                    ]
+                )
+                .sum()
+            ),
+            left_on="place_id",
+            right_on="current_place",
+        )
 
     def get_counts(self, place_idxs: np.ndarray) -> np.ndarray:
         """Get the counts of persons and infected persons for the specified places.
@@ -144,4 +163,5 @@ def create_residents(
     return residents.with_columns(
         pl.lit("susceptible").cast(state_enum).alias("state"),
         pl.lit(np.iinfo(np.uint32).max).alias("next_transition"),
+        pl.col("cell").alias("current_place"),
     )
