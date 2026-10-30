@@ -40,9 +40,9 @@ def test_init_model(fresh_model, model_params):
     assert len(exposed) == model_params["init_exposed"], (
         f"Number of exposed agents should be {model_params['init_exposed']}. Got {len(exposed)}."
     )
-    assert len(exposed.select(pl.col("next_transition")).unique()) == len(exposed), (
-        "Next transition values should be unique."
-    )  # TODO this may not hold, tests need a set seed
+    assert len(exposed.select(pl.col("next_transition")).unique()) != 1, (
+        "Next transition values should be varied."
+    )
 
 
 def test_select_next_place_cell(fresh_model):

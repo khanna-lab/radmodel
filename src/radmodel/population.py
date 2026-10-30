@@ -53,7 +53,7 @@ class Places:
             pl.DataFrame containing place data, including place information and current
             agent counts.
         """
-        self.place_data = place_data.with_columns(count=0)
+        self.place_data = place_data.with_columns(person_count=0)
 
     def update_counts(self, agents: pl.DataFrame) -> None:
         """Update the counts of persons in the specified places.
@@ -64,10 +64,10 @@ class Places:
             Data for agents at current time
         """
 
-        self.place_data.drop("count").join(
+        self.place_data.drop("person_count").join(
             agents.group_by(["module_id", "place_type", "current_place"]).len(
-                name="count"
-            ),  # TODO I need to check that current_place is unique id
+                name="person_count"
+            ),
             left_on="place_id",
             right_on="current_place",
         )
