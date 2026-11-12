@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -26,13 +26,9 @@ from .population import (
 )
 
 
-def init_count() -> np.int32:
-    return np.int32(0)
-
-
 @dataclass
 class Counts:
-    susceptible: np.uint32 = field(default_factory=init_count)
+    susceptible: int = 0
     exposed: int = 0
     presymp: int = 0
     infected_symp: int = 0
@@ -141,7 +137,7 @@ class Model:
         # TODO fix _log (currently relies on too many things to be changed)
         # self._log(0)
 
-    def _init_agents(self, person_data: pl.DataFrame):
+    def _init_agents(self, agent_data: pl.DataFrame):
         """Initiates model agents. This merges the other agent data with their full schedule.
 
         Parameters
@@ -151,12 +147,13 @@ class Model:
         """
         # filter the schedule to current t, then join the unpivoted table
         # join schedule to correct agents
-        self.agent_data = person_data.join(
+        self.agent_data = agent_data
+        self.current_agent_data = agent_data.join(
             self.schedule_data.filter(pl.col("t") == 0), on="schedule_id"
-        ).with_columns(pl.col("cell_id").alias("cell"))
+        )
 
         # add correct location information for each t
-        self.agent_data = self.agent_data.unpivot(
+        self.agent_current_data = self.current_agent_data.unpivot(
             on=["cell", "cafeteria", "morning_act", "afternoon_act", "evening_act"],
             index=~pl.selectors.by_name(
                 ["cell", "cafeteria", "morning_act", "afternoon_act", "evening_act"]
@@ -224,47 +221,29 @@ class Model:
         tick: int
             The current tick in the simulation.
         """
-        # Combine agent dataframe with their schedule
         agent_data = self.agent_data.join(
-            self.schedule_data.filter(pl.col("t") == tick), on="schedule_id"
+            self.schedule_data.filter(pl.col("t") == tick).with_columns(
+                current_place_type=pl.col("place_type")
+            ),
+            on="schedule_id",
         )
 
+        # get agent location at current time
         self.current_agent_data = (
-            agent_data.unpivot(
+            agent_data.drop("current_place")
+            .unpivot(
                 on=["evening_act", "cell", "cafeteria", "morning_act", "afternoon_act"],
                 index=~pl.selectors.by_name(
-                    ["cell", "cafeteria", "morning_act", "afternoon_act", "evening_act"]
+                    ["evening_act", "cell", "cafeteria", "morning_act", "afternoon_act"]
                 ),
-                variable_name="current_place",
+                value_name="current_place",
             )
-            .filter(pl.col("variable") == pl.col("place_type"))
+            .filter(pl.col("current_place_type") == pl.col("variable"))
             .drop("variable")
         )
-
-        # get counts for each state and place
-        counts = self.current_agent_data.group_by(
-            ["mod", "state", "place_type", "current_place"]
-        ).len()
-
-        # sets total persons in each place: unique place ids (which are also row indexs in place data),
-        # and how many times they occur
-        places, counts = np.unique(
-            self.person_data[:, P_CURRENT_PLACE_IDX], return_counts=True
-        )
-        # Using the places place row idxs set number of persons in those places
-        self.place_data.update_counts(places, counts)
-        states = self.person_data[:, P_STATE_IDX]
-
-        # Same counts but only for infected persons
-        places, counts = np.unique(
-            self.person_data[
-                (states == PRESYMPTOMATIC)
-                | (states == INFECTED_ASYMP)
-                | (states == INFECTED_SYMP)
-            ][:, P_CURRENT_PLACE_IDX],
-            return_counts=True,
-        )
-        self.place_data.update_infected_counts(places, counts)
+        # get total and infected counts for each state and place
+        self.place_data.update_counts(self.current_agent_data)
+        self.place_data.update_infected_counts(self.current_agent_data)
 
     def update_disease_state(self, tick: int) -> None:
         # TODO this needs to be updated to calculate based on a df + the place counts e.g.

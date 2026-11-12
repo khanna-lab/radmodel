@@ -104,7 +104,7 @@ def test_generate_schedules(tmp_path_factory):
 
 def test_generate_agents_cells(agents, params_no_overflow):
     assert agents.shape == (params_no_overflow["residents"]["count"], 8)
-    assert (agents.group_by(["module_id", "cell_id"]).len().max()["len"] == 2).all(), (
+    assert (agents.group_by(["module_id", "cell"]).len().max()["len"] == 2).all(), (
         "Cells should house max 2 agents"
     )
 

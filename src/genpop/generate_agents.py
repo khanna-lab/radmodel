@@ -59,7 +59,7 @@ def generate_agents(
     # add agent ids, and cell numbers to dataframe
     agents_df = agents_df.with_columns(
         agent_id=pl.int_range(pl.len()),
-        cell_id=pl.col("module_id").cum_count().over("module_id") % cells_per_module,
+        cell=pl.col("module_id").cum_count().over("module_id") % cells_per_module,
     )
 
     if save_output:

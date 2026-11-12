@@ -200,7 +200,7 @@ def generate_cell_assignments(
             {
                 "agent_id": i,
                 "module_id": cell["parent_id"],
-                "cell_id": cell["place_id"],
+                "cell_place_id": cell["place_id"],
                 "bunk_position": bunk_names[cell["occupants"] - 1],
             }
         )
@@ -212,7 +212,7 @@ def generate_cell_assignments(
             fieldnames=[
                 "agent_id",
                 "module_id",
-                "cell_id",
+                "cell_place_id",
                 "bunk_position",
             ],
         )
