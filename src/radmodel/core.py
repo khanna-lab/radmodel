@@ -180,7 +180,7 @@ class Model:
             ),
         )
 
-        m = np.iinfo(np.uint32).max
+        max_int = np.iinfo(np.uint32).max
         self.agent_data = self.agent_data.with_columns(
             next_transition=pl.when(pl.col("state") == "exposed")
             .then(
@@ -190,7 +190,7 @@ class Model:
                     ).astype(int)
                 )
             )
-            .otherwise(pl.lit(m))
+            .otherwise(pl.lit(max_int))
         )
 
     def _init_logging(self, comm: MPI.Intracomm, params: dict):
