@@ -22,5 +22,5 @@ STATE_MAP = {
     "I_S": INFECTED_SYMP,
     "R": RECOVERED,
     "H": HOSPITALIZED,
-    "D": DEAD
+    "D": DEAD,
 }

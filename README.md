@@ -32,7 +32,7 @@ If you'd rather have an isolated install:
 module load python/3.11.11-5e66 openmpi/4.1.8-iqkf
 python3 -m venv ~/.venvs/radmodel-py3.11
 source ~/.venvs/radmodel-py3.11/bin/activate
-export CC=mpicc MPICC=mpicc          # required: mpi4py + repast4py build from source
+export CC=mpicc MPICC=mpicc CXX=mpicc         # required: mpi4py + repast4py build from source
 pip install -r requirements.txt
 pip install -e .
 ```

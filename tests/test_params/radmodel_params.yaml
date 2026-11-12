@@ -1,0 +1,49 @@
+stop.at: 2880.2
+random_seed: 42
+
+init_exposed: 5
+
+# schedule_file: $this/../data/ng_schedules.csv
+# places_file: $this/../data/ng_places.csv
+# residents_file: $this/../data/ng_residents.csv
+
+output_dir: '$HOME/scratch/radmodel/$JOBNAME/output'
+counts_log_file: $outdir/counts.csv
+places_log_file: $outdir/counts_by_place.csv
+
+stoe: 0.9
+
+transition_matrix:
+  E:
+    P: 0.8
+    I_A: 0.2
+  P:
+    I_S: 1.0
+  I_A:
+    R: 1.0
+  I_S:
+    R: 0.9
+    H: 0.1
+  H:
+    R: 0.95
+    D: 0.05
+  R:
+    S: 1.0
+
+exposed_duration_mean: 3.5
+exposed_duration_k: 6
+
+asymptomatic_duration_mean: 10
+asymptomatic_duration_k: 6
+
+symptomatic_duration_mean: 10
+symptomatic_duration_k: 6
+
+presymptomatic_duration_mean: 2.5
+presymptomatic_duration_k: 6
+
+hospital_duration_mean: 6.5
+hospital_duration_k: 6
+
+recovered_duration_mean: 200
+recovered_duration_k: 6

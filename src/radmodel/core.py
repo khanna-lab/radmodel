@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
+import polars as pl
 from mpi4py import MPI
 from repast4py import logging, schedule, util
 
@@ -20,7 +21,6 @@ from .common import (
 from .population import (
     P_CURRENT_PLACE_IDX,
     P_NEXT_STATE_T_IDX,
-    P_SCHEDULE_IDX,
     P_STATE_IDX,
     Places,
 )
@@ -67,25 +67,28 @@ class Counts:
 
 
 class CountsByPlaceLogger:
-    def __init__(self, place_id_map, log_fname):
-        self.reverse_map = {v: k for k, v in place_id_map.items()}
+    def __init__(self, log_fname):
         self.log_fname = util.find_free_filename(log_fname)
 
         with open(self.log_fname, "w") as fin:
             fin.write("tick,place_id,person_count,inf_count\n")
 
     def log_counts(self, tick, places):
-        with open(self.log_fname, "a") as fin:
-            for idx, vals in enumerate(places.get_all_counts()):
-                fin.write(f"{tick},{self.reverse_map[idx]},{vals[0]},{vals[1]}\n")
+        """TODO set up logging"""
+        return
+        # with open(self.log_fname, "a") as fin:
+        #     fin.writelines(
+        #         f"{tick},{self.reverse_map[idx]},{vals[0]},{vals[1]}\n"
+        #         for idx, vals in enumerate(places.get_all_counts())
+        #     )
 
 
 class Model:
     def __init__(
         self,
         comm: MPI.Intracomm,
-        schedule_data: np.ndarray[int],
-        person_data: np.ndarray,
+        schedule_data: pl.DataFrame,
+        agent_data: pl.DataFrame,
         place_data: Places,
         stoe: float,
         trans_matrix: np.ndarray,
@@ -99,19 +102,13 @@ class Model:
         ==========
         comm : MPI.Intracomm
             The MPI communicator.
-        schedule_data : np.ndarray[int]
-            An tick-indexed 1-d array of shape (n_schedules * TICKS_PER_DAY) containing
-            the place types for each tick in the day for each schedule.
-        person_data : np.ndarray
-            The person data array that comes from population.create_persons. This array contains
-            the person data for each person in the population, including their current state,
-            next state transition time, and current place.
+        schedule_data : pl.DataFrame
+            A dataframe containing a row per schedule per timestep.
+        agent_data : pl.DataFrame
+            This dataframe contains the data for each agent in the population,
+            including current state, next state transition time, and current place.
         place_data : Places
-            The place data object that comes from population.create_places. This object
-            contains two pieces of information: the place data array and
-            a mapping from place_id to row index in the place data array.
-            It also contains methods to update the counts of persons and infected persons
-            in each place.
+            This object contains place data and methods to update counts of agents.
         stoe : float
             The standard time of exposure.
         trans_matrix : np.array
@@ -124,19 +121,10 @@ class Model:
             The model parameters.
         """
         self.rng: np.random.Generator = np.random.default_rng(seed)
-        n_schedules = int(schedule_data.shape[0] / TICKS_PER_DAY)
         self.schedule_data = schedule_data
-        self.offsets = np.arange(0, n_schedules, dtype=np.int64) * TICKS_PER_DAY
-        # Array of indices into the schedule_data array,
-        # 1 for each schedule, that is updated each tick
-        self.schedule_idx = np.zeros((n_schedules), dtype=np.int64)
-        # array of indices into resident's place columns, 1 for each schedule
-        self.next_place_types = np.zeros((n_schedules), dtype=np.uint32)
-        # self.risks = np.zeros((n_schedules))
-        self.person_data = person_data
         self.place_data = place_data
+
         self.stoe: np.float32 = np.float32(stoe)
-        self.row_idxs = np.arange(len(self.person_data))
         self.trans_matrix: np.ndarray = trans_matrix.cumsum(axis=1)
         self.duration_matrix: np.ndarray = duration_matrix
         self.params = params
@@ -144,18 +132,65 @@ class Model:
 
         self._init_logging(comm, params)
         self._init_schedule(comm)
+        self._init_agents(agent_data)
         self._init_exposed(params["init_exposed"])
-        self._log(0)
+        # TODO fix _log (currently relies on too many things to be changed)
+        # self._log(0)
+
+    def _init_agents(self, agent_data: pl.DataFrame):
+        """Initiates model agents. This merges the other agent data with their full schedule.
+
+        Parameters
+        ==========
+        person_data: pl.DataFrame
+            Agent information.
+        """
+        # filter the schedule to current t, then join the unpivoted table
+        # join schedule to correct agents
+        self.agent_data = agent_data
+        self.current_agent_data = agent_data.join(
+            self.schedule_data.filter(pl.col("t") == 0), on="schedule_id"
+        )
+
+        # add correct location information for each t
+        self.agent_current_data = self.current_agent_data.unpivot(
+            on=["cell", "cafeteria", "morning_act", "afternoon_act", "evening_act"],
+            index=~pl.selectors.by_name(
+                ["cell", "cafeteria", "morning_act", "afternoon_act", "evening_act"]
+            ),
+            value_name="place",
+        ).filter(pl.col("variable") == pl.col("place_type"))
 
     def _init_exposed(self, n_exposed: int):
-        idxs = self.rng.choice(self.person_data.shape[0], n_exposed, replace=False)
-        np.put(self.person_data[:, P_STATE_IDX], idxs, EXPOSED)
+        """Initiates exposed agents.
 
+        Parameters
+        ==========
+        n_exposed: int
+            Number of agents to expose
+
+        """
         k, scale = self.duration_matrix[EXPOSED]
-        np.put(
-            self.person_data[:, P_NEXT_STATE_T_IDX],
-            idxs,
-            self.rng.gamma(k, scale, n_exposed) * TICKS_PER_DAY,
+
+        # randomly select agent states
+        self.agent_data = self.agent_data.with_columns(
+            state=self.rng.permutation(
+                ["susceptible"] * (self.agent_data.shape[0] - n_exposed)
+                + ["exposed"] * n_exposed
+            ),
+        )
+
+        max_int = np.iinfo(np.uint32).max
+        self.agent_data = self.agent_data.with_columns(
+            next_transition=pl.when(pl.col("state") == "exposed")
+            .then(
+                pl.lit(
+                    (
+                        np.random.gamma(k, scale, len(self.agent_data)) * TICKS_PER_DAY
+                    ).astype(int)
+                )
+            )
+            .otherwise(pl.lit(max_int))
         )
 
     def _init_logging(self, comm: MPI.Intracomm, params: dict):
@@ -165,9 +200,7 @@ class Model:
         self.data_set = logging.ReducingDataSet(loggers, comm, log_file)
 
         place_log_file = params["places_log_file"]
-        self.counts_by_place = CountsByPlaceLogger(
-            self.place_data.place_id_map, place_log_file
-        )
+        self.counts_by_place = CountsByPlaceLogger(place_log_file)
 
     def _init_schedule(self, comm):
         self.runner = schedule.init_schedule_runner(comm)
@@ -177,10 +210,10 @@ class Model:
         # write at the end of every day (4 * 24)
         self.runner.schedule_repeating_event(96.1, 96, self.data_set.write)
 
-    def at_end(self):
+    def at_end(self) -> None:
         self.data_set.close()
 
-    def select_next_place(self, tick: int):
+    def select_next_place(self, tick: int) -> None:
         """Select the next place for each person based on their schedule.
 
         Parameters
@@ -188,50 +221,39 @@ class Model:
         tick: int
             The current tick in the simulation.
         """
-        # TODO: May need to update the logic since we are modeling the strcutural layout of the facility
-        # as having a hierarchical structure.
-
-        # add tick index to offset to get the schedule inidices
-        np.add(self.offsets, tick % TICKS_PER_DAY, out=self.schedule_idx)
-
-        # TODO: This assumes a flat structure of the facility. Now that we have a hierarchical structure,
-        # we need to update this logic
-
-        # Sets the next place type (person place column idx) for each schedule
-        self.next_place_types[:] = self.schedule_data[self.schedule_idx]
-
-        # Set the current place for each person by
-        # 1. Getting the column idxs for the next places via next_place_idxs and each persons schedule_idx
-        # 2. Set the current place id column to the value in the selected next_place_column idxs
-        residents_next_place_types = self.next_place_types[
-            self.person_data[:, P_SCHEDULE_IDX]
-        ]
-        # TODO: This is what we need to change
-        self.person_data[:, P_CURRENT_PLACE_IDX] = self.person_data[
-            self.row_idxs, residents_next_place_types
-        ]
-
-        # sets total persons in each place: unique place ids (which are also row indexs in place data),
-        # and how many times they occur
-        places, counts = np.unique(
-            self.person_data[:, P_CURRENT_PLACE_IDX], return_counts=True
+        agent_data = self.agent_data.join(
+            self.schedule_data.filter(pl.col("t") == tick).with_columns(
+                current_place_type=pl.col("place_type")
+            ),
+            on="schedule_id",
         )
-        # Using the places place row idxs set number of persons in those places
-        self.place_data.update_counts(places, counts)
-        states = self.person_data[:, P_STATE_IDX]
 
-        # Same counts but only for infected persons
-        places, counts = np.unique(
-            self.person_data[
-                (states == PRESYMPTOMATIC)
-                | (states == INFECTED_ASYMP)
-                | (states == INFECTED_SYMP)
-            ][:, P_CURRENT_PLACE_IDX],
-            return_counts=True,
+        # get agent location at current time
+        self.current_agent_data = (
+            agent_data.drop("current_place")
+            .unpivot(
+                on=["evening_act", "cell", "cafeteria", "morning_act", "afternoon_act"],
+                index=~pl.selectors.by_name(
+                    ["evening_act", "cell", "cafeteria", "morning_act", "afternoon_act"]
+                ),
+                value_name="current_place",
+            )
+            .filter(pl.col("current_place_type") == pl.col("variable"))
+            .drop("variable")
         )
-        self.place_data.update_infected_counts(places, counts)
+        # get total and infected counts for each state and place
+        self.place_data.update_counts(self.current_agent_data)
+        self.place_data.update_infected_counts(self.current_agent_data)
 
-    def update_disease_state(self, tick: int):
+    def update_disease_state(self, tick: int) -> None:
+        # TODO this needs to be updated to calculate based on a df + the place counts e.g.
+        # for location:
+        #    if location.infected > 0 and location.susceptible > 0
+        #        use stoe to mark some susceptibles as exposed
+        #        (exposed set?)
+        #        mark how long to next transition
+        #        if agent has transition time, calculate if becomes infected (presymptomatic) or back to susceptible
+
         # row indices of susceptibles - calc if exposed
         sus_idxs = np.nonzero(self.person_data[:, P_STATE_IDX] == SUSCEPTIBLE)[0]
         n_sus = sus_idxs.shape[0]
@@ -374,13 +396,14 @@ class Model:
         self.data_set.log(tick)
         self.counts_by_place.log_counts(tick, self.place_data)
 
-    def step(self):
+    def step(self) -> None:
+        # TODO I think this needs to iterate through each agent and 1. update disease state, 2. update location
         self.counts.reset()
 
-        tick = self.runner.tick()
+        tick = int(self.runner.tick())
         self.select_next_place(tick)
         self.update_disease_state(tick)
-
+        # TODO fix _log
         self._log(tick)
 
 

@@ -5,29 +5,25 @@ as queryable dataclasses. The simulation core does not yet consume this; it
 is descriptive metadata for future schedule/movement work.
 """
 
-import csv
 import os
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import TypeVar
 
+import polars as pl
 
-@dataclass
-class Agent:
-    person_id: int
-    module_id: int
-    cell_id: int
+T = TypeVar("T")
 
 
 @dataclass
 class Cell:
     place_id: int
-    module_id: Optional[int]
-    tier: Optional[str]
+    module_id: int | None
+    tier: str | None
     cell_number: int
     housing_category: str  # "GP", "RH", "MI"
     bunk_capacity: int
     name: str
-    occupants: List[Agent] = field(default_factory=list)
+    occupants: pl.DataFrame = field(default_factory=pl.DataFrame)
 
 
 @dataclass
@@ -35,104 +31,175 @@ class SharedPlace:
     place_id: int
     name: str
     place_type: str
-    module_id: Optional[int]
-    capacity: Optional[int]
-    occupants: List[Agent] = field(default_factory=list)
+    module_id: int | None
+    occupants: pl.DataFrame = field(default_factory=pl.DataFrame)
 
 
 @dataclass
-class Module:
-    module_id: int
-    letter: str
-    cells: List[Cell] = field(default_factory=list)
+class BaseModule:
+    cells: list[Cell] = field(default_factory=list)
 
-    def add_cell(self, cell):
-        self.cells.append(cell)
+    def add_cell(self, **r):
+        self.cells.append(
+            Cell(
+                place_id=int(r["place_id"]),
+                module_id=_opt_int(r["parent_id"]),
+                tier=r["tier"],
+                cell_number=int(r["place_id"]),
+                housing_category=r["subtype"],
+                bunk_capacity=int(r["capacity"]),
+                name=r["name"],
+            )
+        )
 
 
 @dataclass
-class CellAssignment:
-    person_id: int
-    cell_place_id: int
-    bunk_position: str  # "bottom", "top", "third"
+class Module(BaseModule):
+    module_id: int = 0
+    letter: str = ""
+    shared_places: list[SharedPlace] = field(default_factory=list)
+    showers: list[SharedPlace] = field(default_factory=list)
+    dayrooms: list[SharedPlace] = field(default_factory=list)
+
+    def add_shared_place(self, **r):
+        if r["subtype"] == "shower":
+            self.showers.append(
+                SharedPlace(
+                    place_id=int(r["place_id"]),
+                    name=r["name"],
+                    place_type=r["subtype"],
+                    module_id=_opt_int(r["parent_id"]),
+                )
+            )
+        elif r["subtype"] == "dayroom":
+            self.dayrooms.append(
+                SharedPlace(
+                    place_id=int(r["place_id"]),
+                    name=r["name"],
+                    place_type=r["subtype"],
+                    module_id=_opt_int(r["parent_id"]),
+                )
+            )
+
+
+@dataclass
+class SharedModule(BaseModule):
+    module_id: str = ""
 
 
 @dataclass
 class Layout:
-    modules: Dict[str, Module] = field(default_factory=Dict)
-    cell_assignments: List[CellAssignment] = field(default_factory=list)
+    """Class to hold the hierarchical layout of the prison.
 
-    def add_module(self, module):
-        self.modules.update(module)
+    Generates variables needed for the Places class:
+      a structural `Layout` containing `Module`s and their associated `Cell`s
+      a places_id_map: dict[int, int]
+      and place_data: ndarray
+    """
 
+    places_id_map: dict[int, int] = field(default_factory=dict)
+    n_places = 0
+    place_data: pl.DataFrame = field(default_factory=pl.DataFrame)
+    # place_data: ndarray = field(default_factory=lambda: zeros((), dtype=uint32))
+    modules: dict[int, Module] = field(default_factory=dict)
+    shared_places: dict[str, SharedPlace] = field(default_factory=dict)
+    cafeterias: dict[str, SharedPlace] = field(default_factory=dict)
+    shared_modules: dict[str, SharedModule] = field(default_factory=dict)
+    gp_count = 0
 
-def _opt_int(s: str) -> Optional[int]:
-    return int(s) if s != "" else None
+    def add_modules(self, modules: list[Module]):
+        self.modules.update({m.module_id: m for m in modules})
 
+    def add_shared_module(self, **r):
+        self.shared_modules.update(
+            {r["subtype"]: SharedModule(module_id=r["place_id"])}
+        )
 
-def _opt_str(s: str) -> Optional[str]:
-    return s if s != "" else None
-
-
-def load_modules(path: str | os.PathLike) -> Dict[str, Module]:
-    with open(path) as f:
-        modules = {
-            r["module_id"]: Module(module_id=int(r["module_id"]), letter=r["letter"])
-            for r in csv.DictReader(f)
-        }
-        modules["-1"] = Module(module_id=-1, letter="NA")
-        return modules
-
-
-def load_cells(path, modules):
-    with open(path) as f:
-        for r in csv.DictReader(f):
-            module_id = r["module_id"] if r["module_id"] != "" else "-1"
-            if "type" not in r or r["type"] == "cell":
-                modules[module_id].add_cell(
-                    Cell(
-                        place_id=int(r["place_id"]),
-                        module_id=_opt_int(r["module_id"]),
-                        tier=_opt_str(r["tier"]),
-                        cell_number=int(r["cell_number"]),
-                        housing_category=r["housing_category"],
-                        bunk_capacity=int(r["bunk_capacity"]),
-                        name=r["name"],
-                    )
+    def add_shared_place(self, **r):
+        self.shared_places.update(
+            {
+                r["name"]: SharedPlace(
+                    place_id=int(r["place_id"]),
+                    name=r["name"],
+                    place_type=r["subtype"],
+                    module_id=_opt_int(r["parent_id"]),
                 )
-            elif r["type"] == "shared":
-                modules[module_id]["shared_places"].append(
-                    SharedPlace(
-                        place_id=int(r["place_id"]),
-                        name=r["name"],
-                        place_type=r["place_type"],
-                        module_id=_opt_int(r["module_id"]),
-                        capacity=_opt_int(r["capacity"]),
-                    )
+            }
+        )
+
+    def add_cafeterias(self, **r):
+        self.cafeterias.update(
+            {
+                r["name"]: SharedPlace(
+                    place_id=int(r["place_id"]),
+                    name=r["name"],
+                    place_type=r["subtype"],
+                    module_id=_opt_int(r["parent_id"]),
                 )
+            }
+        )
 
+    def load_places(self, path: str | os.PathLike) -> None:
+        """Loads the csv generated from the generate.generate_places function.
 
-def load_cell_assignments(path: str | os.PathLike) -> List[CellAssignment]:
-    with open(path) as f:
-        return [
-            CellAssignment(
-                person_id=int(r["person_id"]),
-                cell_place_id=int(r["cell_place_id"]),
-                bunk_position=r["bunk_position"],
+        Parameters
+        ==========
+        path: str | os.PathLike
+            path to folder containing places.csv
+        """
+        self.place_data = pl.read_csv(os.path.join(path, "places.csv"))
+        self.add_modules(
+            self.place_data.filter(pl.col("type") == "module")
+            .rename({"place_id": "module_id"})
+            .select(
+                pl.struct(["module_id"]).map_elements(
+                    lambda x: Module(**x), return_dtype=pl.Object
+                )
             )
-            for r in csv.DictReader(f)
-        ]
+            .to_series()
+            .to_list()
+        )
+
+        # Add shared 'modules' for non-gp cells
+        for housing_type in ["restricted", "medical"]:
+            r = {"subtype": housing_type, "place_id": -1}
+            self.add_shared_module(**r)
+
+        # add places other than cells
+        for row in self.place_data.filter(
+            ~pl.col("type").is_in(["cell", "module", "facility"]),
+        ).to_dicts():
+            match row["subtype"]:
+                case "dining_room":
+                    self.add_cafeterias(**row)
+                case "shower" | "dayroom":
+                    self.modules[int(row["parent_id"])].add_shared_place(**row)
+                case (
+                    "medical" | "segregation"
+                ):  # medical and segregation units added separately
+                    pass
+                case _:
+                    self.add_shared_place(**row)
+
+        # add cells
+        for row in self.place_data.filter(pl.col("type") == "cell").to_dicts():
+            match row["subtype"]:
+                case "gp":
+                    self.modules[int(row["parent_id"])].add_cell(**row)
+                    self.gp_count += 1
+                case "mi":
+                    self.shared_modules["medical"].add_cell(**row)
+                case "rh":
+                    self.shared_modules["restricted"].add_cell(**row)
+        self.place_data = self.place_data.with_columns(person_count=0, infected_count=0)
+
+    @classmethod
+    def load_from_csv(cls, data_dir: str | os.PathLike) -> "Layout":
+        """Load the structural CSV from a directory."""
+        layout = Layout()
+        layout.load_places(data_dir)
+        return layout
 
 
-def load_layout(data_dir: str | os.PathLike) -> Layout:
-    """Load all four structural CSVs from a directory."""
-    modules = load_modules(os.path.join(data_dir, "ng_modules.csv"))
-    print(modules["0"].cells)
-    load_cells(os.path.join(data_dir, "ng_cells.csv"), modules)
-    return Layout(
-        modules=modules,
-        cell_assignments=load_cell_assignments(
-            os.path.join(data_dir, "ng_cell_assignments.csv")
-        ),
-    )
-
+def _opt_int(s: str) -> int | None:
+    return int(s) if s != "" else None
