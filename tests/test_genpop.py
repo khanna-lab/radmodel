@@ -104,15 +104,15 @@ def test_generate_schedules(tmp_path_factory):
 
 def test_generate_agents_cells(agents, params_no_overflow):
     assert agents.shape == (params_no_overflow["residents"]["count"], 8)
-    assert (
-        agents.group_by(["module_id", "cell_place_id"]).len().max()["len"] == 2
-    ).all(), "Cells should house max 2 agents"
+    assert (agents.group_by(["module_id", "cell_id"]).len().max()["len"] == 2).all(), (
+        "Cells should house max 2 agents"
+    )
 
 
 def test_generate_agents_activities(agents):
-    num_morning = agents.unique(subset="morning_act_name").shape[0]
-    num_afternoon = agents.unique(subset="afternoon_act_name").shape[0]
-    num_evening = agents.unique(subset="evening_act_name").shape[0]
+    num_morning = agents.unique(subset="morning_act").shape[0]
+    num_afternoon = agents.unique(subset="afternoon_act").shape[0]
+    num_evening = agents.unique(subset="evening_act").shape[0]
 
     assert num_morning > 1 and num_morning <= 7, (
         f"There should be fewer than 7 activities, found {num_morning}"
