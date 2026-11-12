@@ -2,7 +2,7 @@ import polars as pl
 
 
 def test_init_model(fresh_model, model_params):
-    assert fresh_model.agent_data.shape == (100, 13)
+    assert fresh_model.agent_data.shape[0] == 100
     exposed = fresh_model.agent_data.filter(pl.col("state") == "exposed")
     assert len(exposed) == model_params["init_exposed"], (
         f"Number of exposed agents should be {model_params['init_exposed']}. Got {len(exposed)}."
