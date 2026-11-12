@@ -1,5 +1,5 @@
 import os
-import random  # TODO this should use numpy random with set seed
+import random
 
 import numpy as np
 import polars as pl
