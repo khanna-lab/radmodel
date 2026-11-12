@@ -91,7 +91,7 @@ class Model:
         agent_data: pl.DataFrame,
         place_data: Places,
         stoe: float,
-        trans_matrix: np.ndarray,
+        trans_matrix: pl.DataFrame,
         duration_matrix: np.ndarray,
         seed: int,
         params: dict[str, Any],
@@ -111,7 +111,7 @@ class Model:
             This object contains place data and methods to update counts of agents.
         stoe : float
             The standard time of exposure.
-        trans_matrix : np.array
+        trans_matrix : pl.DataFrame
             The transmission matrix.
         duration_matrix : np.array
             The duration matrix.
@@ -124,8 +124,8 @@ class Model:
         self.schedule_data = schedule_data
         self.place_data = place_data
 
-        self.stoe: np.float32 = np.float32(stoe)
-        self.trans_matrix: np.ndarray = trans_matrix.cumsum(axis=1)
+        self.stoe: float = stoe
+        self.trans_matrix: pl.DataFrame = trans_matrix
         self.duration_matrix: np.ndarray = duration_matrix
         self.params = params
         self.comm = comm
@@ -150,7 +150,7 @@ class Model:
         self.agent_data = agent_data
         self.current_agent_data = agent_data.join(
             self.schedule_data.filter(pl.col("t") == 0), on="schedule_id"
-        )
+        ).drop("t")
 
         # add correct location information for each t
         self.agent_current_data = self.current_agent_data.unpivot(
@@ -221,14 +221,24 @@ class Model:
         tick: int
             The current tick in the simulation.
         """
-        agent_data = self.agent_data.join(
-            self.schedule_data.filter(pl.col("t") == tick).with_columns(
-                current_place_type=pl.col("place_type")
-            ),
-            on="schedule_id",
+        # Get basic agent data with updated state and next transition time
+        agent_data = (
+            self.agent_data.drop(["state", "next_transition"])
+            .join(
+                self.schedule_data.filter(pl.col("t") == tick).with_columns(
+                    current_place_type=pl.col("place_type")
+                ),
+                on="schedule_id",
+            )
+            .join(
+                self.current_agent_data.select(
+                    ["agent_id", "state", "next_transition"]
+                ),
+                on="agent_id",
+            )
         )
-
         # get agent location at current time
+        # TODO this needs to also join in current_agent_data to get next transition time etc
         self.current_agent_data = (
             agent_data.drop("current_place")
             .unpivot(
@@ -246,50 +256,75 @@ class Model:
         self.place_data.update_infected_counts(self.current_agent_data)
 
     def update_disease_state(self, tick: int) -> None:
-        # TODO this needs to be updated to calculate based on a df + the place counts e.g.
-        # for location:
-        #    if location.infected > 0 and location.susceptible > 0
-        #        use stoe to mark some susceptibles as exposed
-        #        (exposed set?)
-        #        mark how long to next transition
-        #        if agent has transition time, calculate if becomes infected (presymptomatic) or back to susceptible
-
-        # row indices of susceptibles - calc if exposed
-        sus_idxs = np.nonzero(self.person_data[:, P_STATE_IDX] == SUSCEPTIBLE)[0]
-        n_sus = sus_idxs.shape[0]
-        # get the place row indices for all the susceptibles
-        sus_place_idxs = self.person_data[sus_idxs, P_CURRENT_PLACE_IDX]
-        # each row corresponds to person, cols are total person count, infected count
-        # .ix_ applies the column indices to each row index
-        counts = self.place_data.get_counts(sus_place_idxs)
-        # array of n_sus stoe probs - if no one in place, then set prob to 0
-        # TODO: risk and shielding scaling
-        stoe_p = np.full((n_sus,), self.stoe, dtype=np.float32) * (counts[:, 1] > 0)
-        # if tick >= 317:
-        #     print(self.place_data[:, PL_INFECTED_COUNT_IDX])
-        #     print(counts)
-        #     print(self.stoe)
-        #     print(stoe_p)
-        # sus_idxs[self ...] removes the indexes that don't pass the condition (random draw <= stoe_p)
-        stoe_idxs = sus_idxs[self.rng.random(n_sus) <= stoe_p]
-        # set state to exposed for those that passed
-        np.put(self.person_data[:, P_STATE_IDX], stoe_idxs, EXPOSED)
-        self.counts.newly_exposed += stoe_idxs.shape[0]
-
-        # set the how long to stay exposed
+        # TODO make sure update_infected_counts happens before this step
+        # Risk of exposure = stoe if infected agents present
+        # Update place data with risk
+        prev_exposed = len(self.current_agent_data.filter(pl.col("state") == "exposed"))
+        self.place_data.place_data = self.place_data.place_data.with_columns(
+            pl.when(pl.col("infected_count") > 0)
+            .then(self.stoe)
+            .otherwise(0)
+            .alias("risk")
+        )
         k, scale = self.duration_matrix[EXPOSED]
-        np.put(
-            self.person_data[:, P_NEXT_STATE_T_IDX],
-            stoe_idxs,
-            tick + self.rng.gamma(k, scale, stoe_idxs.shape[0]) * TICKS_PER_DAY,
+        self.place_data.place_data = self.place_data.place_data.with_columns(
+            risk=update_exposed(self.stoe)
         )
 
-        # get non_susceptibles whose next transition time == tick
-        candidates_idxs = np.nonzero(
-            (self.person_data[:, P_STATE_IDX] != SUSCEPTIBLE)
-            & (self.person_data[:, P_NEXT_STATE_T_IDX] == tick)
-        )[0]
-        n_candidates = candidates_idxs.shape[0]
+        self.current_agent_data = (
+            self.current_agent_data.drop("risk")
+            .join(
+                self.place_data.place_data.select(["place_id", "risk"]),
+                left_on="current_place",
+                right_on="place_id",
+            )
+            .with_columns(
+                pl.when(
+                    (pl.col("state") == "susceptible")
+                    & (self.rng.random() <= pl.col("risk"))
+                )
+                .then(
+                    pl.struct(
+                        state=pl.lit("exposed"),
+                        next_transition=self.rng.gamma(k, scale),
+                    )
+                )
+                .otherwise(
+                    pl.struct(
+                        state=pl.col("state"), next_transition=pl.col("next_transition")
+                    )
+                )
+                .struct.unnest()
+            )
+        )
+
+        # TODO so far works for 0 risk, check with infected agents still needed
+        self.counts.newly_exposed = (
+            len(self.current_agent_data.filter(pl.col("state") == "exposed"))
+            - prev_exposed
+        )
+
+        # TODO: risk and shielding scaling
+        # TODO how do i get the transition matrix here? I think the transition matrix should be another dataframe to join
+        x = transition(self.current_agent_data, self.trans_matrix)
+        # self.current_agent_data = self.current_agent_data.join_where(
+        #     self.trans_matrix,
+        # )
+        # self.current_agent_data.with_columns(
+        #     state=pl.when(
+        #         (pl.col("state") != "susceptible")
+        #         & (pl.col("next_transition"))
+        #         & (self.rng.random() <= (self.trans_matrix[pl.col("state")]))
+        #     ).then("")
+        # )
+        # random_draws = self.trans_matrix.select(
+        #     pl.cum_sum_horizontal(~pl.selectors.by_name("state"))
+        # )
+
+        # self.current_agent_data = self.current_agent_data.with_columns(
+        #     pl.cum_sum()
+        # )
+        return
 
         # Compute n_candidates updated states from the transition matrix
         updated_states = (
@@ -437,13 +472,21 @@ def create_duration_matrix(params: dict[str, float]):
     return durations
 
 
-def create_trans_matrix(transition_matrix: dict[str, dict[str, float]]):
-    n_states = len(STATE_MAP)
-    trans_matrix = np.zeros((n_states, n_states), dtype=np.float32)
-    for i_key, v in transition_matrix.items():
-        i = STATE_MAP[i_key]
-        for j_key, prob in v.items():
-            j = STATE_MAP[j_key]
-            trans_matrix[i, j] = prob
+def create_trans_matrix(transition_matrix: str):
+    return pl.read_json(transition_matrix).fill_null(0)
 
-    return trans_matrix
+
+def transition(current_agent_data: pl.DataFrame, matrix: pl.DataFrame):
+    cols = matrix.columns
+    cols.remove("state")
+    agent_data = current_agent_data.join(matrix, on="state")
+    matrix.with_columns(
+        pl.concat_list(pl.exclude("state"))
+        .map_elements(lambda x: np.random.choice(cols, p=x), return_dtype=str)
+        .alias("random")
+    )
+    return agent_data.join(matrix, on=pl.col("state")).group_by()
+
+
+def update_exposed(stoe: float):
+    return pl.when(pl.col("infected_count") > 0).then(stoe).otherwise(0.0).alias("risk")

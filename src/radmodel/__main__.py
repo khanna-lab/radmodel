@@ -17,7 +17,8 @@ def run(params: dict, comm):
     residents = population.create_residents(fname)
 
     duration_matrix = core.create_duration_matrix(params)
-    trans_matrix = core.create_trans_matrix(params["transition_matrix"])
+    print(params["transition_matrix_file"])
+    trans_matrix = core.create_trans_matrix(params["transition_matrix_file"])
     stoe = params["stoe"]
 
     model = core.Model(

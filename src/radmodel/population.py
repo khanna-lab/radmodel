@@ -50,10 +50,10 @@ class Places:
         Parameters
         ==========
         place_data: pl.DataFrame
-            pl.DataFrame containing place data, including place information and current
-            agent counts.
+            pl.DataFrame containing place data, including place information, current
+            agent counts, and risk.
         """
-        self.place_data = place_data.with_columns(person_count=0)
+        self.place_data = place_data.with_columns(person_count=0, risk=0)
 
     def update_counts(self, agents: pl.DataFrame) -> None:
         """Update the counts of persons in the specified places.
