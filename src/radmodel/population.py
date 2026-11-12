@@ -63,13 +63,16 @@ class Places:
         agents: pl.DataFrame
             Data for agents at current time
         """
-
-        self.place_data.drop("person_count").join(
-            agents.group_by(["module_id", "place_type", "current_place"]).len(
-                name="person_count"
-            ),
-            left_on="place_id",
-            right_on="current_place",
+        self.place_data = (
+            self.place_data.drop("person_count")
+            .join(
+                agents.group_by(["module_id", "place_type", "current_place"]).len(
+                    name="person_count"
+                ),
+                left_on="place_id",
+                right_on="current_place",
+            )
+            .drop("module_id", "place_type")
         )
 
     def update_infected_counts(self, agents: pl.DataFrame) -> None:
