@@ -66,6 +66,7 @@ def model_params(tmp_path_factory):
 @pytest.fixture(scope="session")
 def fresh_model(model_params, fresh_layout):
     schedule = create_schedules(model_params["schedule_file"])
+    print(model_params["transition_matrix"])
     return Model(
         comm=MPI.COMM_WORLD,
         schedule_data=schedule,

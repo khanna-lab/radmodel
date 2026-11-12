@@ -1,0 +1,8 @@
+[
+  {  "state": "exposed", "presymptomatic": 0.8, "infected_asymp": 0.2 },
+  { "state": "presymptomatic", "infected_asymp": 1.0 },
+  { "state": "infected_asymp", "recovered": 1.0 },
+  { "state": "infected_symp", "recovered": 0.9, "hospitalized": 0.1 },
+  { "state": "hospitalized", "recovered": 0.95, "dead": 0.05 },
+  { "state": "recovered", "susceptible": 1.0 }
+]
