@@ -6,29 +6,13 @@ init_exposed: 0
 schedule_file: $this/../data/ng_schedules.csv
 places_file: $this/../data/ng_places.csv
 residents_file: $this/../data/ng_residents.csv
+transition_matrix_file: ./tests/test_params/transition_matrix.json
 
-output_dir: '$HOME/scratch/radmodel/$JOBNAME/output'
+output_dir: "$HOME/scratch/radmodel/$JOBNAME/output"
 counts_log_file: $outdir/counts.csv
 places_log_file: $outdir/counts_by_place.csv
 
 stoe: 0.9
-
-transition_matrix:
-  E:
-    P: 0.8
-    I_A: 0.2
-  P:
-    I_S: 1.0
-  I_A:
-    R: 1.0
-  I_S:
-    R: 0.9
-    H: 0.1
-  H:
-    R: 0.95
-    D: 0.05
-  R:
-    S: 1.0
 
 exposed_duration_mean: 3.5
 exposed_duration_k: 6
