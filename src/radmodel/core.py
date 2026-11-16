@@ -122,7 +122,7 @@ class Model:
         self.schedule_data = schedule_data
         self.place_data = place_data
 
-        self.stoe: np.float32 = np.float32(stoe)
+        self.stoe: float = stoe
         self.trans_matrix: pl.DataFrame = trans_matrix
         self.duration_matrix: np.ndarray = duration_matrix
         self.params = params
@@ -148,7 +148,7 @@ class Model:
         self.agent_data = agent_data
         self.current_agent_data = agent_data.join(
             self.schedule_data.filter(pl.col("t") == 0), on="schedule_id"
-        )
+        ).drop("t")
 
         # add correct location information for each t
         self.agent_current_data = self.current_agent_data.unpivot(
@@ -219,14 +219,24 @@ class Model:
         tick: int
             The current tick in the simulation.
         """
-        agent_data = self.agent_data.join(
-            self.schedule_data.filter(pl.col("t") == tick).with_columns(
-                current_place_type=pl.col("place_type")
-            ),
-            on="schedule_id",
+        # Get basic agent data with updated state and next transition time
+        agent_data = (
+            self.agent_data.drop(["state", "next_transition"])
+            .join(
+                self.schedule_data.filter(pl.col("t") == tick).with_columns(
+                    current_place_type=pl.col("place_type")
+                ),
+                on="schedule_id",
+            )
+            .join(
+                self.current_agent_data.select(
+                    ["agent_id", "state", "next_transition"]
+                ),
+                on="agent_id",
+            )
         )
-
         # get agent location at current time
+        # TODO this needs to also join in current_agent_data to get next transition time etc
         self.current_agent_data = (
             agent_data.drop("current_place")
             .unpivot(
@@ -244,6 +254,7 @@ class Model:
         self.place_data.update_infected_counts(self.current_agent_data)
 
     def update_disease_state(self, tick: int) -> None:
+        # TODO make sure update_infected_counts happens before this step
         # Risk of exposure = stoe if infected agents present
         # Update place data with risk
         prev_exposed = len(self.current_agent_data.filter(pl.col("state") == "exposed"))
@@ -376,7 +387,7 @@ def transition(current_agent_data: pl.DataFrame, matrix: pl.DataFrame):
     agent_data = current_agent_data.join(matrix, on="state")
     matrix.with_columns(
         pl.concat_list(pl.exclude("state"))
-        .map_elements(lambda x: np.random.choice(cols, p=x), return_dtype=pl.String)
+        .map_elements(lambda x: np.random.choice(cols, p=x), return_dtype=str)
         .alias("random")
     )
     return agent_data.join(matrix, on=pl.col("state")).group_by()
