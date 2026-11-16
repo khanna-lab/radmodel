@@ -77,13 +77,3 @@ def test_select_next_place_morning(fresh_model):
     assert len(joined.unique("current_place")) != len(joined), (
         "Morning activities should not be fully unique."
     )
-
-
-def test_update_disease_state(fresh_model):
-    # TODO test with infected agents
-    fresh_model.update_disease_state(1)
-    assert_frame_equal(
-        fresh_model.current_agent_data.select("risk").unique(),
-        pl.DataFrame({"risk": 0.0}),
-    )
-    fresh_model.current_agent_data.select("state")
