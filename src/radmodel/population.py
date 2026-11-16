@@ -56,13 +56,14 @@ class Places:
         self.place_data = place_data.with_columns(person_count=0)
 
     def update_counts(self, agents: pl.DataFrame) -> None:
-        """Update the counts of persons in the specified places.
+        """Update the counts of persons in the place_data dataframe.
 
         Parameters
         ==========
         agents: pl.DataFrame
-            Data for agents at current time
+            Data for agents at current time.
         """
+        # Group agents by current place, get group len, and join with place data to get fresh counts
         self.place_data = self.place_data.drop("person_count").join(
             agents.group_by(pl.col("current_place")).len(name="person_count"),
             left_on="place_id",
@@ -70,15 +71,14 @@ class Places:
         )
 
     def update_infected_counts(self, agents: pl.DataFrame) -> None:
-        """Update the counts of infected persons in the specified places.
+        """Update the counts of infected persons in the place_data dataframe.
 
         Parameters
         ==========
         places: np.ndarray
             Array of place indices to update.
-        counts: np.ndarray
-            Array of counts corresponding to the places.
         """
+        # Group agents by current place, get number who are infected, join with place_data
         self.place_data = self.place_data.drop("infected_count").join(
             agents.group_by(pl.col("current_place")).agg(
                 infected_count=pl.col("state")
