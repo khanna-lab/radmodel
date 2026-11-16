@@ -91,7 +91,7 @@ class Model:
         agent_data: pl.DataFrame,
         place_data: Places,
         stoe: float,
-        trans_matrix: np.ndarray,
+        trans_matrix: pl.DataFrame,
         duration_matrix: np.ndarray,
         seed: int,
         params: dict[str, Any],
@@ -111,7 +111,7 @@ class Model:
             This object contains place data and methods to update counts of agents.
         stoe : float
             The standard time of exposure.
-        trans_matrix : np.array
+        trans_matrix : pl.DataFrame
             The transmission matrix.
         duration_matrix : np.array
             The duration matrix.
@@ -125,7 +125,7 @@ class Model:
         self.place_data = place_data
 
         self.stoe: np.float32 = np.float32(stoe)
-        self.trans_matrix: np.ndarray = trans_matrix.cumsum(axis=1)
+        self.trans_matrix: pl.DataFrame = trans_matrix
         self.duration_matrix: np.ndarray = duration_matrix
         self.params = params
         self.comm = comm
@@ -437,13 +437,17 @@ def create_duration_matrix(params: dict[str, float]):
     return durations
 
 
-def create_trans_matrix(transition_matrix: dict[str, dict[str, float]]):
-    n_states = len(STATE_MAP)
-    trans_matrix = np.zeros((n_states, n_states), dtype=np.float32)
-    for i_key, v in transition_matrix.items():
-        i = STATE_MAP[i_key]
-        for j_key, prob in v.items():
-            j = STATE_MAP[j_key]
-            trans_matrix[i, j] = prob
+def create_trans_matrix(transition_matrix: str):
+    return pl.read_json(transition_matrix).fill_null(0)
 
-    return trans_matrix
+
+def transition(current_agent_data: pl.DataFrame, matrix: pl.DataFrame):
+    cols = matrix.columns
+    cols.remove("state")
+    agent_data = current_agent_data.join(matrix, on="state")
+    matrix.with_columns(
+        pl.concat_list(pl.exclude("state"))
+        .map_elements(lambda x: np.random.choice(cols, p=x), return_dtype=pl.String)
+        .alias("random")
+    )
+    return agent_data.join(matrix, on=pl.col("state")).group_by()
