@@ -33,7 +33,6 @@ def test_init_model(fresh_model, model_params):
         "end",
         "place_type",
         "risk",
-        "t",
     ]
     assert fresh_model.current_agent_data.shape[0] == 100
     exposed = fresh_model.agent_data.filter(pl.col("state") == "exposed")
