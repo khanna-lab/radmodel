@@ -19,8 +19,6 @@ from .common import (
     TICKS_PER_DAY,
 )
 from .population import (
-    P_CURRENT_PLACE_IDX,
-    P_NEXT_STATE_T_IDX,
     P_STATE_IDX,
     Places,
 )
@@ -382,6 +380,7 @@ def transition(current_agent_data: pl.DataFrame, matrix: pl.DataFrame):
         .alias("random")
     )
     return agent_data.join(matrix, on=pl.col("state")).group_by()
+
 
 def update_exposed(stoe: float):
     return pl.when(pl.col("infected_count") > 0).then(stoe).otherwise(0.0).alias("risk")
