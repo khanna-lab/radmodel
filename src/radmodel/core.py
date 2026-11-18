@@ -246,123 +246,54 @@ class Model:
         self.place_data.update_infected_counts(self.current_agent_data)
 
     def update_disease_state(self, tick: int) -> None:
-        # TODO this needs to be updated to calculate based on a df + the place counts e.g.
-        # for location:
-        #    if location.infected > 0 and location.susceptible > 0
-        #        use stoe to mark some susceptibles as exposed
-        #        (exposed set?)
-        #        mark how long to next transition
-        #        if agent has transition time, calculate if becomes infected (presymptomatic) or back to susceptible
-
-        # row indices of susceptibles - calc if exposed
-        sus_idxs = np.nonzero(self.person_data[:, P_STATE_IDX] == SUSCEPTIBLE)[0]
-        n_sus = sus_idxs.shape[0]
-        # get the place row indices for all the susceptibles
-        sus_place_idxs = self.person_data[sus_idxs, P_CURRENT_PLACE_IDX]
-        # each row corresponds to person, cols are total person count, infected count
-        # .ix_ applies the column indices to each row index
-        counts = self.place_data.get_counts(sus_place_idxs)
-        # array of n_sus stoe probs - if no one in place, then set prob to 0
-        # TODO: risk and shielding scaling
-        stoe_p = np.full((n_sus,), self.stoe, dtype=np.float32) * (counts[:, 1] > 0)
-        # if tick >= 317:
-        #     print(self.place_data[:, PL_INFECTED_COUNT_IDX])
-        #     print(counts)
-        #     print(self.stoe)
-        #     print(stoe_p)
-        # sus_idxs[self ...] removes the indexes that don't pass the condition (random draw <= stoe_p)
-        stoe_idxs = sus_idxs[self.rng.random(n_sus) <= stoe_p]
-        # set state to exposed for those that passed
-        np.put(self.person_data[:, P_STATE_IDX], stoe_idxs, EXPOSED)
-        self.counts.newly_exposed += stoe_idxs.shape[0]
-
-        # set the how long to stay exposed
+        # Risk of exposure = stoe if infected agents present
+        # Update place data with risk
+        prev_exposed = len(self.current_agent_data.filter(pl.col("state") == "exposed"))
+        self.place_data.place_data = self.place_data.place_data.with_columns(
+            pl.when(pl.col("infected_count") > 0)
+            .then(pl.lit(self.stoe))
+            .otherwise(0)
+            .alias("risk")
+        )
+        # how long to stay exposed
         k, scale = self.duration_matrix[EXPOSED]
-        np.put(
-            self.person_data[:, P_NEXT_STATE_T_IDX],
-            stoe_idxs,
-            tick + self.rng.gamma(k, scale, stoe_idxs.shape[0]) * TICKS_PER_DAY,
+        self.place_data.place_data = self.place_data.place_data.with_columns(
+            risk=update_exposed(self.stoe)
         )
 
-        # get non_susceptibles whose next transition time == tick
-        candidates_idxs = np.nonzero(
-            (self.person_data[:, P_STATE_IDX] != SUSCEPTIBLE)
-            & (self.person_data[:, P_NEXT_STATE_T_IDX] == tick)
-        )[0]
-        n_candidates = candidates_idxs.shape[0]
-
-        # Compute n_candidates updated states from the transition matrix
-        updated_states = (
-            self.trans_matrix[self.person_data[candidates_idxs, P_STATE_IDX]]
-            > self.rng.random((n_candidates, 1))
-        ).argmax(1)
-        # Update the states
-        np.put(self.person_data[:, P_STATE_IDX], candidates_idxs, updated_states)
-
-        # Set next transition tick for candidates
-        duration_candidates = candidates_idxs[
-            self.person_data[candidates_idxs, P_STATE_IDX] == PRESYMPTOMATIC
-        ]
-        k, scale = self.duration_matrix[PRESYMPTOMATIC]
-        np.put(
-            self.person_data[:, P_NEXT_STATE_T_IDX],
-            duration_candidates,
-            tick
-            + self.rng.gamma(k, scale, duration_candidates.shape[0]) * TICKS_PER_DAY,
+        self.current_agent_data = (
+            self.current_agent_data.drop("risk")
+            .join(
+                self.place_data.place_data.select(["place_id", "risk"]),
+                left_on="current_place",
+                right_on="place_id",
+            )
+            .with_columns(
+                pl.when(
+                    (pl.col("state") == "susceptible")
+                    & (self.rng.random() <= pl.col("risk"))
+                )
+                .then(
+                    pl.struct(
+                        state=pl.lit("exposed"),
+                        next_transition=self.rng.gamma(k, scale),
+                    )
+                )
+                .otherwise(
+                    pl.struct(
+                        state=pl.col("state"), next_transition=pl.col("next_transition")
+                    )
+                )
+                .struct.unnest()
+            )
         )
-        self.counts.newly_presymp += duration_candidates.shape[0]
-
-        duration_candidates = candidates_idxs[
-            self.person_data[candidates_idxs, P_STATE_IDX] == INFECTED_SYMP
-        ]
-        k, scale = self.duration_matrix[INFECTED_SYMP]
-        np.put(
-            self.person_data[:, P_NEXT_STATE_T_IDX],
-            duration_candidates,
-            tick
-            + self.rng.gamma(k, scale, duration_candidates.shape[0]) * TICKS_PER_DAY,
+        # TODO so far works for 0 risk, check with infected agents still needed
+        self.counts.newly_exposed = (
+            len(self.current_agent_data.filter(pl.col("state") == "exposed"))
+            - prev_exposed
         )
-        self.counts.newly_infected_symp += duration_candidates.shape[0]
 
-        duration_candidates = candidates_idxs[
-            self.person_data[candidates_idxs, P_STATE_IDX] == INFECTED_ASYMP
-        ]
-        k, scale = self.duration_matrix[INFECTED_ASYMP]
-        np.put(
-            self.person_data[:, P_NEXT_STATE_T_IDX],
-            duration_candidates,
-            tick
-            + self.rng.gamma(k, scale, duration_candidates.shape[0]) * TICKS_PER_DAY,
-        )
-        self.counts.newly_infected_asymp += duration_candidates.shape[0]
-
-        duration_candidates = candidates_idxs[
-            self.person_data[candidates_idxs, P_STATE_IDX] == HOSPITALIZED
-        ]
-        k, scale = self.duration_matrix[HOSPITALIZED]
-        np.put(
-            self.person_data[:, P_NEXT_STATE_T_IDX],
-            duration_candidates,
-            tick
-            + self.rng.gamma(k, scale, duration_candidates.shape[0]) * TICKS_PER_DAY,
-        )
-        self.counts.newly_hospitalized += duration_candidates.shape[0]
-
-        duration_candidates = candidates_idxs[
-            self.person_data[candidates_idxs, P_STATE_IDX] == RECOVERED
-        ]
-        k, scale = self.duration_matrix[RECOVERED]
-        np.put(
-            self.person_data[:, P_NEXT_STATE_T_IDX],
-            duration_candidates,
-            tick
-            + self.rng.gamma(k, scale, duration_candidates.shape[0]) * TICKS_PER_DAY,
-        )
-        self.counts.newly_recovered += duration_candidates.shape[0]
-
-        self.counts.newly_dead += candidates_idxs[
-            self.person_data[candidates_idxs, P_STATE_IDX] == DEAD
-        ].shape[0]
+        transition(self.current_agent_data, self.trans_matrix)
 
     def run(self):
         self.runner.execute()
@@ -451,3 +382,6 @@ def transition(current_agent_data: pl.DataFrame, matrix: pl.DataFrame):
         .alias("random")
     )
     return agent_data.join(matrix, on=pl.col("state")).group_by()
+
+def update_exposed(stoe: float):
+    return pl.when(pl.col("infected_count") > 0).then(stoe).otherwise(0.0).alias("risk")
